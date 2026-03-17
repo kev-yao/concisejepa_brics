@@ -1,0 +1,14 @@
+_target_: concisejepa.models.concise_jepa.ConciseJEPA
+concise_backbone:
+  _target_: concisejepa.models.concise.Concise
+  drug_layers:
+    - [32, 32, 32]
+  ligand_dim: 2048
+  residue_dim: 1280
+  drug_dim: 128
+  proj_dim: 256
+  nheads: 32
+  activation: tanh
+  cosine_prediction: false
+smiles_target_dim: 256
+jepa_hidden_dim: 512

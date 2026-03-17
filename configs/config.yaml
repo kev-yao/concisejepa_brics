@@ -1,0 +1,66 @@
+seed: 42
+lr: 1.0e-4
+weight_decay: 1.0e-2
+
+wandb:
+  project: concisejepa
+  entity: null
+  mode: online
+  save_dir: .
+  run_name_prefix: concisejepa
+
+checkpoint:
+  dir: checkpoints
+  filename: "{epoch:02d}-{val_dti_auprc:.4f}"
+  monitor: val/dti_auprc
+  mode: max
+  save_top_k: 1
+  save_last: true
+
+trainer:
+  max_epochs: 20
+  accelerator: auto
+  devices: 1
+  precision: 32
+  log_every_n_steps: 20
+  enable_progress_bar: true
+
+coati_validation:
+  enabled: true
+  device: cuda:0
+  doc_url: s3://terray-public/models/grande_closed.pkl
+  noise_scale: 0.0
+  max_decode_per_batch: -1
+  table_max_rows: 64
+
+model:
+  _target_: concisejepa.models.concise_jepa.ConciseJEPA
+  concise_backbone:
+    _target_: concisejepa.models.concise.Concise
+    drug_layers:
+      - [32, 32, 32]
+    ligand_dim: 2048
+    residue_dim: 1280
+    drug_dim: 128
+    proj_dim: 256
+    nheads: 32
+    activation: tanh
+    cosine_prediction: false
+  smiles_target_dim: 256
+  jepa_hidden_dim: 512
+
+datamodule:
+  _target_: concisejepa.datamodules.BindingDBDictDataModule
+  train_csv: /hpc/group/singhlab/user/me196/projects/moleculerep/data/DTI-datasets/BindingDB/train.csv
+  val_csv: /hpc/group/singhlab/user/me196/projects/moleculerep/data/DTI-datasets/BindingDB/val.csv
+  test_csv: /hpc/group/singhlab/user/me196/projects/moleculerep/data/DTI-datasets/BindingDB/test.csv
+  protein_embeddings_path: /hpc/group/singhlab/user/yk307/projects/concisejepa/data/DTI-datasets/BindingDB/raygun_embeddings.pt
+  morgan_embeddings_path: /hpc/group/singhlab/user/yk307/projects/concisejepa/data/DTI-datasets/BindingDB/morgan_embeddings.pt
+  smiles_embeddings_path: /hpc/group/singhlab/user/yk307/projects/concisejepa/data/DTI-datasets/BindingDB/coati_embeddings.pt
+  sequence_col: Target Sequence
+  smiles_col: SMILES
+  label_col: Label
+  batch_size: 64
+  num_workers: 4
+  pin_memory: true
+  persistent_workers: true

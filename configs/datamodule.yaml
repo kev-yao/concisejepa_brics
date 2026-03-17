@@ -1,0 +1,20 @@
+_target_: concisejepa.datamodules.BindingDBDictDataModule
+
+train_csv: /hpc/group/singhlab/user/me196/projects/moleculerep/data/DTI-datasets/BindingDB/train.csv
+val_csv: /hpc/group/singhlab/user/me196/projects/moleculerep/data/DTI-datasets/BindingDB/val.csv
+test_csv: /hpc/group/singhlab/user/me196/projects/moleculerep/data/DTI-datasets/BindingDB/test.csv
+
+# Pre-embedded dictionaries saved with torch.save(dict_obj, path).
+protein_embeddings_path: /hpc/group/singhlab/user/yk307/projects/concisejepa/data/DTI-datasets/BindingDB/raygun_embeddings.pt
+morgan_embeddings_path: /hpc/group/singhlab/user/yk307/projects/concisejepa/data/DTI-datasets/BindingDB/morgan_embeddings.pt
+smiles_embeddings_path: /hpc/group/singhlab/user/yk307/projects/concisejepa/data/DTI-datasets/BindingDB/coati_embeddings.pt
+
+# CSV parsing
+sequence_col: Target Sequence
+smiles_col: SMILES
+label_col: Label
+
+batch_size: 64
+num_workers: 4
+pin_memory: true
+persistent_workers: true

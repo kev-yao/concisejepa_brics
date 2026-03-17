@@ -1,0 +1,32 @@
+[project]
+name = "concisejepa"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "datamol>=0.12.5",
+    "einops>=0.8.2",
+    "fair-esm>=2.0.0",
+    "hydra-core>=1.3.2",
+    "matplotlib>=3.10.8",
+    "molfeat>=0.11.0",
+    "numpy<2",
+    "pandas>=2.3.3",
+    "pytorch-lightning>=2.6.1",
+    "ruff>=0.15.5",
+    "scikit-learn>=1.7.2",
+    "torch>=2.10.0",
+    "tqdm>=4.67.3",
+    "transformers>=5.2.0",
+    "typer>=0.24.0",
+    "wandb>=0.25.0",
+]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+
+[tool.ruff.lint]
+# Keep linting lightweight: catch correctness issues, skip stylistic noise.
+select = ["F", "E9"]
