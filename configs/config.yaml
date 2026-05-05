@@ -3,7 +3,7 @@ lr: 1.0e-4
 weight_decay: 1.0e-2
 
 wandb:
-  project: concisejepa
+  project: concisejepa-moodeng
   entity: null
   mode: online
   save_dir: .
@@ -18,7 +18,7 @@ checkpoint:
   save_last: true
 
 trainer:
-  max_epochs: 20
+  max_epochs: 100
   accelerator: auto
   devices: 1
   precision: 32
@@ -30,8 +30,22 @@ coati_validation:
   device: cuda:0
   doc_url: s3://terray-public/models/grande_closed.pkl
   noise_scale: 0.0
-  max_decode_per_batch: -1
+  max_decode_batches_per_epoch: 1
   table_max_rows: 64
+
+synthetic_validation:
+  enabled: false
+  seed: 17
+  decode_batch_size: 256
+  morgan_radius: 2
+  morgan_n_bits: 2048
+  umap_n_neighbors: 30
+  umap_min_dist: 0.15
+  morgan_umap_metric: jaccard
+  coati_umap_metric: euclidean
+  point_size: 26.0
+  point_alpha: 0.9
+  max_decode: 1000
 
 model:
   _target_: concisejepa.models.concise_jepa.ConciseJEPA
@@ -51,16 +65,16 @@ model:
 
 datamodule:
   _target_: concisejepa.datamodules.BindingDBDictDataModule
-  train_csv: /hpc/group/singhlab/user/me196/projects/moleculerep/data/DTI-datasets/BindingDB/train.csv
-  val_csv: /hpc/group/singhlab/user/me196/projects/moleculerep/data/DTI-datasets/BindingDB/val.csv
-  test_csv: /hpc/group/singhlab/user/me196/projects/moleculerep/data/DTI-datasets/BindingDB/test.csv
-  protein_embeddings_path: /hpc/group/singhlab/user/yk307/projects/concisejepa/data/DTI-datasets/BindingDB/raygun_embeddings.pt
-  morgan_embeddings_path: /hpc/group/singhlab/user/yk307/projects/concisejepa/data/DTI-datasets/BindingDB/morgan_embeddings.pt
-  smiles_embeddings_path: /hpc/group/singhlab/user/yk307/projects/concisejepa/data/DTI-datasets/BindingDB/coati_embeddings.pt
+  train_csv: /hpc/group/singhlab/user/me196/projects/moleculerep/runs/REVICE/data/moodeng/train.csv
+  val_csv: /hpc/group/singhlab/user/yk307/projects/concisejepa/data/DTI-datasets/moodeng/val.csv
+  test_csv: /hpc/group/singhlab/user/yk307/projects/concisejepa/data/DTI-datasets/moodeng/test_remaining.csv
+  protein_embeddings_path: /hpc/group/singhlab/user/yk307/projects/concisejepa/data/DTI-datasets/moodeng/raygun_embeddings.pt
+  morgan_embeddings_path: /hpc/group/singhlab/user/yk307/projects/concisejepa/data/DTI-datasets/moodeng/morgan_embeddings.pt
+  smiles_embeddings_path: /hpc/group/singhlab/user/yk307/projects/concisejepa/data/DTI-datasets/moodeng/coati_embeddings.pt
   sequence_col: Target Sequence
   smiles_col: SMILES
   label_col: Label
-  batch_size: 64
+  batch_size: 1028
   num_workers: 4
   pin_memory: true
   persistent_workers: true

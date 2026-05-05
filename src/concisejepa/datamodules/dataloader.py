@@ -78,7 +78,7 @@ class Collator:
         smiles = torch.stack([self.smiles_embeddings[smi] for smi in smiles_list], dim=0)
         smiles = smiles.reshape(smiles.shape[0], -1)
         label = torch.tensor(labels, dtype=torch.float32)
-        return protein, morgan, smiles, label, list(smiles_list)
+        return protein, morgan, smiles, label, list(smiles_list), list(sequences)
 
 
 class BindingDBDictDataModule(pl.LightningDataModule):

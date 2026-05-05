@@ -6,7 +6,7 @@ import pytorch_lightning as pl
 import torch
 import wandb
 from omegaconf import DictConfig, ListConfig
-from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.callbacks import ModelCheckpoint, TQDMProgressBar
 from pytorch_lightning.loggers import WandbLogger
 
 from concisejepa.datamodules import BindingDBDictDataModule
@@ -38,13 +38,14 @@ def main(cfg: DictConfig) -> None:
         save_top_k=cfg.checkpoint.save_top_k,
         save_last=cfg.checkpoint.save_last,
     )
+    progress_bar_callback = TQDMProgressBar()
 
     lit_module = LitConciseJEPA(cfg)
     data_module = BindingDBDictDataModule(cfg.datamodule)
 
     trainer = pl.Trainer(
         logger=wandb_logger,
-        callbacks=[checkpoint_callback],
+        callbacks=[checkpoint_callback, progress_bar_callback],
         **cfg.trainer,
     )
 
