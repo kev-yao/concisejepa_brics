@@ -5,9 +5,12 @@ val_csv: /hpc/group/singhlab/user/me196/projects/moleculerep/data/DTI-datasets/B
 test_csv: /hpc/group/singhlab/user/me196/projects/moleculerep/data/DTI-datasets/BindingDB/test.csv
 
 # Pre-embedded dictionaries saved with torch.save(dict_obj, path).
-protein_embeddings_path: /hpc/group/singhlab/user/yk307/projects/concisejepa/data/DTI-datasets/BindingDB/raygun_embeddings.pt
-morgan_embeddings_path: /hpc/group/singhlab/user/yk307/projects/concisejepa/data/DTI-datasets/BindingDB/morgan_embeddings.pt
-smiles_embeddings_path: /hpc/group/singhlab/user/yk307/projects/concisejepa/data/DTI-datasets/BindingDB/coati_embeddings.pt
+# Leave empty to auto-generate in the train_csv directory when missing.
+protein_embeddings_path: ""
+morgan_embeddings_path: ""
+smiles_embeddings_path: ""
+embedding_device: cuda:0
+coati_doc_url: s3://terray-public/models/grande_closed.pkl
 
 # CSV parsing
 sequence_col: Target Sequence

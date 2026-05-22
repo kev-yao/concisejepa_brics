@@ -5,12 +5,13 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
+    "coati @ git+https://github.com/terraytherapeutics/COATI.git",
     "datamol>=0.12.5",
     "einops>=0.8.2",
     "fair-esm>=2.0.0",
     "hydra-core>=1.3.2",
     "matplotlib>=3.10.8",
-    "molfeat>=0.11.0",
+    "molfeat>=0.10.1,<0.11",
     "numpy<2",
     "pandas>=2.3.3",
     "pytorch-lightning>=2.6.1",
@@ -21,7 +22,6 @@ dependencies = [
     "transformers>=5.2.0",
     "typer>=0.24.0",
     "umap-learn>=0.5.9.post2",
-    "wandb>=0.25.0",
 ]
 
 [tool.ruff]

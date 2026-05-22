@@ -1,8 +1,10 @@
+import json
+from pathlib import Path
+
 import pytorch_lightning as pl
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import wandb
 from hydra.utils import instantiate
 from omegaconf import DictConfig
 from rdkit import Chem, DataStructs
@@ -27,6 +29,14 @@ class LitConciseJEPA(pl.LightningModule):
             "test": BinaryAveragePrecision(),
         }
         self.jepa_loss = nn.MSELoss()
+
+        forward_capture_cfg = getattr(config, "forward_capture", {})
+        self.forward_capture_enabled = bool(forward_capture_cfg.get("enabled", False))
+        self.forward_capture_stage = str(forward_capture_cfg.get("stage", "train"))
+        self.forward_capture_batch_idx = int(forward_capture_cfg.get("batch_idx", 0))
+        forward_capture_output_path = str(forward_capture_cfg.get("output_path", "")).strip()
+        self.forward_capture_output_path = Path(forward_capture_output_path) if forward_capture_output_path else None
+        self._forward_capture_epochs: set[tuple[str, int]] = set()
 
         coati_cfg = getattr(config, "coati_validation", {})
         self.enable_val_smiles_decode = bool(coati_cfg.get("enabled", False))
@@ -53,6 +63,7 @@ class LitConciseJEPA(pl.LightningModule):
 
         self._coati_encoder = None
         self._coati_tokenizer = None
+        self._coati_missing_warned = False
         self._fixed_protein_embedding = None
         self._synthetic_code_indices = None
         self._synthetic_first_digit = None
@@ -74,6 +85,133 @@ class LitConciseJEPA(pl.LightningModule):
         self._val_total_count = 0
         self._val_table_rows = []
         self._val_decode_batches = 0
+
+    @staticmethod
+    def _tensor_to_json_list(tensor: torch.Tensor) -> list:
+        return tensor.detach().cpu().tolist()
+
+    @staticmethod
+    def _format_json_array_multiline(values: list, indent: int = 2) -> str:
+        prefix = " " * indent
+        item_prefix = " " * (indent + 2)
+        if not values:
+            return "[]"
+        lines = ["["]
+        for idx, value in enumerate(values):
+            suffix = "," if idx < len(values) - 1 else ""
+            lines.append(f"{item_prefix}{json.dumps(value)}{suffix}")
+        lines.append(f"{prefix}]")
+        return "\n".join(lines)
+
+    @staticmethod
+    def _format_json_matrix_rows(matrix: list[list[float]], indent: int = 2) -> str:
+        prefix = " " * indent
+        row_prefix = " " * (indent + 2)
+        if not matrix:
+            return "[]"
+        lines = ["["]
+        for idx, row in enumerate(matrix):
+            suffix = "," if idx < len(matrix) - 1 else ""
+            lines.append(f"{row_prefix}{json.dumps(row)}{suffix}")
+        lines.append(f"{prefix}]")
+        return "\n".join(lines)
+
+    @classmethod
+    def _format_forward_capture_record(cls, record: dict) -> str:
+        ordered_keys = [
+            "epoch",
+            "global_step",
+            "stage",
+            "batch_idx",
+            "batch_size",
+            "row_peptides",
+            "column_sequences",
+            "labels",
+            "similarity_logits",
+            "diagonal_scores",
+            "logit_scale",
+        ]
+        lines = ["{"]
+        for idx, key in enumerate(ordered_keys):
+            suffix = "," if idx < len(ordered_keys) - 1 else ""
+            if key in {"row_peptides", "column_sequences"}:
+                value_text = cls._format_json_array_multiline(record[key], indent=2)
+            elif key == "similarity_logits":
+                value_text = cls._format_json_matrix_rows(record[key], indent=2)
+            else:
+                value_text = json.dumps(record[key])
+
+            if "\n" in value_text:
+                lines.append(f"  {json.dumps(key)}: {value_text}{suffix}")
+            else:
+                lines.append(f"  {json.dumps(key)}: {value_text}{suffix}")
+        lines.append("}")
+        return "\n".join(lines) + "\n"
+
+    def _build_forward_capture_record(
+        self,
+        batch,
+        outputs: dict[str, torch.Tensor],
+        stage: str,
+        batch_idx: int,
+    ) -> dict:
+        smiles_list = batch[4] if len(batch) > 4 else []
+        sequence_list = batch[5] if len(batch) > 5 else []
+        labels = batch[3].detach().cpu().reshape(-1).tolist()
+        logit_scale = None
+        if hasattr(self.model, "logit_scale"):
+            logit_scale = float(self.model.logit_scale.exp().detach().cpu().item())
+
+        return {
+            "epoch": int(self.current_epoch),
+            "global_step": int(self.global_step),
+            "stage": stage,
+            "batch_idx": int(batch_idx),
+            "batch_size": int(batch[3].shape[0]),
+            "row_peptides": [str(value) for value in smiles_list],
+            "column_sequences": [str(value) for value in sequence_list],
+            "labels": [float(value) for value in labels],
+            "similarity_logits": self._tensor_to_json_list(outputs["similarity_logits"]),
+            "diagonal_scores": self._tensor_to_json_list(outputs["binding"]),
+            "logit_scale": logit_scale,
+        }
+
+    def _maybe_capture_forward_batch(
+        self,
+        batch,
+        outputs: dict[str, torch.Tensor],
+        stage: str,
+        batch_idx: int,
+    ) -> None:
+        if not self.forward_capture_enabled:
+            return
+        if self.forward_capture_output_path is None:
+            return
+        if stage != self.forward_capture_stage:
+            return
+        if int(batch_idx) != self.forward_capture_batch_idx:
+            return
+        epoch_key = (stage, int(self.current_epoch))
+        if epoch_key in self._forward_capture_epochs:
+            return
+
+        try:
+            trainer = self.trainer
+        except RuntimeError:
+            trainer = None
+        if trainer is not None and not getattr(trainer, "is_global_zero", True):
+            return
+
+        record = self._build_forward_capture_record(
+            batch=batch,
+            outputs=outputs,
+            stage=stage,
+            batch_idx=batch_idx,
+        )
+        self.forward_capture_output_path.parent.mkdir(parents=True, exist_ok=True)
+        with self.forward_capture_output_path.open("w", encoding="utf-8") as f:
+            f.write(self._format_forward_capture_record(record))
+        self._forward_capture_epochs.add(epoch_key)
 
     def _ensure_coati_decoder_loaded(self) -> None:
         if self._coati_encoder is not None and self._coati_tokenizer is not None:
@@ -148,6 +286,17 @@ class LitConciseJEPA(pl.LightningModule):
 
         return similarities
 
+    def on_train_start(self) -> None:
+        num_residual_layers = len(self.model.concise.d_encoder.residualfsqs)
+        levels = self.model.concise.d_encoder.get_levels()
+        print(f"\n{'='*80}")
+        print(f"[DRUG ENCODER FSQ CONFIG]")
+        print(f"  Number of ResidualFSQ layers: {num_residual_layers}")
+        print(f"  FSQ levels per layer: {levels}")
+        if num_residual_layers > 0:
+            print(f"  Total codebook combinations: {' × '.join(str(l) for l in levels[0])} per layer")
+        print(f"{'='*80}\n")
+
     def on_validation_epoch_start(self) -> None:
         self._reset_val_decode_state()
 
@@ -169,6 +318,8 @@ class LitConciseJEPA(pl.LightningModule):
             return
 
         self._ensure_coati_decoder_loaded()
+        if self._coati_encoder is None or self._coati_tokenizer is None:
+            return
         self._val_decode_batches += 1
 
         num_items = jepa_pred.shape[0]
@@ -241,16 +392,7 @@ class LitConciseJEPA(pl.LightningModule):
         if experiment is None or not hasattr(experiment, "log"):
             return
 
-        table = wandb.Table(columns=["target_smiles", "generated_smiles", "tanimoto"])
-        for row in self._val_table_rows:
-            table.add_data(row["target_smiles"], row["generated_smiles"], row["tanimoto"])
-
-        experiment.log(
-            {
-                "val/jepa_smiles_table": table,
-                "trainer/global_step": self.global_step,
-            }
-        )
+        # Non-W&B loggers (e.g., CSVLogger) do not support table media; skip gracefully.
 
     def _get_primary_fsq(self):
         d_encoder = self.model.concise.d_encoder
@@ -399,6 +541,9 @@ class LitConciseJEPA(pl.LightningModule):
             return
         if self._fixed_protein_embedding is None:
             return
+        self._ensure_coati_decoder_loaded()
+        if self._coati_encoder is None or self._coati_tokenizer is None:
+            return
 
         import matplotlib
         import numpy as np
@@ -502,17 +647,6 @@ class LitConciseJEPA(pl.LightningModule):
             summary_lines=summary_lines + [f"metric={self.synthetic_coati_umap_metric}"],
         )
 
-        if self.logger is not None and hasattr(self.logger, "experiment"):
-            experiment = self.logger.experiment
-            if experiment is not None and hasattr(experiment, "log"):
-                experiment.log(
-                    {
-                        "val/synthetic_morgan_umap": wandb.Image(morgan_fig),
-                        "val/synthetic_coati_umap": wandb.Image(coati_fig),
-                        "trainer/global_step": self.global_step,
-                    }
-                )
-
         plt.close(morgan_fig)
         plt.close(coati_fig)
 
@@ -540,19 +674,22 @@ class LitConciseJEPA(pl.LightningModule):
         matrix = [[left == right for right in values] for left in values]
         return torch.tensor(matrix, dtype=torch.bool, device=device)
 
-    def _contrastive_dti_loss(
+    def _contrastive_logits_targets(
         self,
         similarity_logits: torch.Tensor,
         labels: torch.Tensor,
         smiles_list: list[str],
         sequence_list: list[str],
-    ) -> torch.Tensor:
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, int]:
         device = similarity_logits.device
         batch_size = similarity_logits.shape[0]
         positive_mask = labels > 0.5
+        positive_count = int(positive_mask.sum().item())
 
-        if positive_mask.sum() == 0:
-            return similarity_logits.new_zeros(())
+        if positive_count == 0:
+            empty_logits = similarity_logits.new_empty((0, batch_size))
+            empty_targets = torch.empty((0,), dtype=torch.long, device=device)
+            return empty_logits, empty_targets, empty_logits, empty_targets, 0
 
         eye_mask = torch.eye(batch_size, dtype=torch.bool, device=device)
         smiles_match = self._build_identity_matrix(smiles_list, device)
@@ -563,19 +700,73 @@ class LitConciseJEPA(pl.LightningModule):
 
         row_logits = similarity_logits[positive_mask].masked_fill(invalid_negative_mask[positive_mask], -1e9)
         row_targets = torch.arange(batch_size, device=device)[positive_mask]
-        loss_drug_to_protein = F.cross_entropy(row_logits, row_targets)
 
         col_logits = similarity_logits.T[positive_mask].masked_fill(invalid_negative_mask.T[positive_mask], -1e9)
         col_targets = torch.arange(batch_size, device=device)[positive_mask]
+        return row_logits, row_targets, col_logits, col_targets, positive_count
+
+    def _contrastive_dti_loss(
+        self,
+        similarity_logits: torch.Tensor,
+        labels: torch.Tensor,
+        smiles_list: list[str],
+        sequence_list: list[str],
+    ) -> torch.Tensor:
+        row_logits, row_targets, col_logits, col_targets, positive_count = self._contrastive_logits_targets(
+            similarity_logits=similarity_logits,
+            labels=labels,
+            smiles_list=smiles_list,
+            sequence_list=sequence_list,
+        )
+
+        if positive_count == 0:
+            return similarity_logits.new_zeros(())
+
+        loss_drug_to_protein = F.cross_entropy(row_logits, row_targets)
         loss_protein_to_drug = F.cross_entropy(col_logits, col_targets)
 
         return 0.5 * (loss_drug_to_protein + loss_protein_to_drug)
+
+    @staticmethod
+    def _ranking_metrics_from_logits(logits: torch.Tensor, targets: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        target_scores = logits.gather(1, targets.unsqueeze(1)).squeeze(1)
+        ranks = (logits >= target_scores.unsqueeze(1)).sum(dim=1)
+        ranks = ranks.to(torch.float32)
+        mrr = torch.mean(1.0 / ranks)
+        acc_at_1 = torch.mean((ranks <= 1).to(torch.float32))
+        acc_at_5 = torch.mean((ranks <= 5).to(torch.float32))
+        return mrr, acc_at_1, acc_at_5
+
+    def _contrastive_dti_ranking_metrics(
+        self,
+        similarity_logits: torch.Tensor,
+        labels: torch.Tensor,
+        smiles_list: list[str],
+        sequence_list: list[str],
+    ) -> tuple[dict[str, torch.Tensor], int]:
+        row_logits, row_targets, col_logits, col_targets, positive_count = self._contrastive_logits_targets(
+            similarity_logits=similarity_logits,
+            labels=labels,
+            smiles_list=smiles_list,
+            sequence_list=sequence_list,
+        )
+        if positive_count == 0:
+            zero = similarity_logits.new_zeros(())
+            return {"mrr": zero, "acc_at_1": zero, "acc_at_5": zero}, 0
+
+        row_mrr, row_acc1, row_acc5 = self._ranking_metrics_from_logits(row_logits, row_targets)
+        col_mrr, col_acc1, col_acc5 = self._ranking_metrics_from_logits(col_logits, col_targets)
+        return {
+            "mrr": 0.5 * (row_mrr + col_mrr),
+            "acc_at_1": 0.5 * (row_acc1 + col_acc1),
+            "acc_at_5": 0.5 * (row_acc5 + col_acc5),
+        }, positive_count
 
     def _forward_losses_metrics(
         self,
         batch,
         stage: str,
-    ) -> tuple[torch.Tensor, dict[str, torch.Tensor], torch.Tensor, dict[str, torch.Tensor]]:
+    ) -> tuple[torch.Tensor, dict[str, torch.Tensor], torch.Tensor, dict[str, torch.Tensor], dict[str, torch.Tensor], int]:
         protein_embedding, morgan_fingerprint, smiles_target_embedding, label = batch[:4]
         smiles_list = batch[4] if len(batch) > 4 else []
         sequence_list = batch[5] if len(batch) > 5 else []
@@ -597,13 +788,19 @@ class LitConciseJEPA(pl.LightningModule):
 
         labels = label.to(torch.int)
         auprc = self.auprc_by_stage[stage](dti_scores, labels)
+        ranking_metrics, ranking_weight = self._contrastive_dti_ranking_metrics(
+            similarity_logits=outputs["similarity_logits"],
+            labels=label,
+            smiles_list=smiles_list,
+            sequence_list=sequence_list,
+        )
 
         losses = {
             "loss": loss,
             "loss_dti": loss_dti,
             "loss_jepa": loss_jepa,
         }
-        return loss, losses, auprc, outputs
+        return loss, losses, auprc, outputs, ranking_metrics, ranking_weight
 
     def _log_stage_metrics(
         self,
@@ -611,6 +808,8 @@ class LitConciseJEPA(pl.LightningModule):
         losses: dict[str, torch.Tensor],
         auprc: torch.Tensor,
         batch_size: int,
+        ranking_metrics: dict[str, torch.Tensor],
+        ranking_weight: int,
     ) -> None:
         self.log(
             f"{stage}/loss",
@@ -642,29 +841,50 @@ class LitConciseJEPA(pl.LightningModule):
             prog_bar=(stage != "train"),
             batch_size=batch_size,
         )
+        if ranking_weight > 0:
+            self.log(
+                f"{stage}/dti_mrr",
+                ranking_metrics["mrr"],
+                on_step=False,
+                on_epoch=True,
+                batch_size=ranking_weight,
+            )
+            self.log(
+                f"{stage}/dti_acc_at_1",
+                ranking_metrics["acc_at_1"],
+                on_step=False,
+                on_epoch=True,
+                batch_size=ranking_weight,
+            )
+            self.log(
+                f"{stage}/dti_acc_at_5",
+                ranking_metrics["acc_at_5"],
+                on_step=False,
+                on_epoch=True,
+                batch_size=ranking_weight,
+            )
 
-    def _step(self, batch, stage: str) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
-        loss, losses, auprc, outputs = self._forward_losses_metrics(batch, stage)
+    def _step(self, batch, stage: str, batch_idx: int | None = None) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
+        loss, losses, auprc, outputs, ranking_metrics, ranking_weight = self._forward_losses_metrics(batch, stage)
         batch_size = int(batch[3].shape[0])
-        self._log_stage_metrics(stage, losses, auprc, batch_size)
+        self._log_stage_metrics(stage, losses, auprc, batch_size, ranking_metrics, ranking_weight)
+        if batch_idx is not None:
+            self._maybe_capture_forward_batch(batch=batch, outputs=outputs, stage=stage, batch_idx=batch_idx)
         return loss, outputs
 
     def training_step(self, batch, batch_idx: int) -> torch.Tensor:
-        del batch_idx
-        loss, _ = self._step(batch, stage="train")
+        loss, _ = self._step(batch, stage="train", batch_idx=batch_idx)
         return loss
 
     def validation_step(self, batch, batch_idx: int) -> torch.Tensor:
-        del batch_idx
         self._maybe_cache_fixed_protein_embedding(batch[0])
-        loss, outputs = self._step(batch, stage="val")
+        loss, outputs = self._step(batch, stage="val", batch_idx=batch_idx)
         if len(batch) > 4:
             self._collect_validation_decode_metrics(outputs["jepa_pred"], batch[4])
         return loss
 
     def test_step(self, batch, batch_idx: int) -> torch.Tensor:
-        del batch_idx
-        loss, _ = self._step(batch, stage="test")
+        loss, _ = self._step(batch, stage="test", batch_idx=batch_idx)
         return loss
 
     def configure_optimizers(self):

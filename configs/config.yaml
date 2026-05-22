@@ -2,12 +2,16 @@ seed: 42
 lr: 1.0e-4
 weight_decay: 1.0e-2
 
-wandb:
-  project: concisejepa-moodeng
-  entity: null
-  mode: online
+logging:
   save_dir: .
   run_name_prefix: concisejepa
+
+forward_capture:
+  enabled: true
+  stage: train
+  batch_idx: 0
+  filename: train_forward_logits_last.json
+  output_path: ""
 
 checkpoint:
   dir: checkpoints
@@ -65,12 +69,15 @@ model:
 
 datamodule:
   _target_: concisejepa.datamodules.BindingDBDictDataModule
-  train_csv: /hpc/group/singhlab/user/me196/projects/moleculerep/runs/REVICE/data/moodeng/train.csv
-  val_csv: /hpc/group/singhlab/user/yk307/projects/concisejepa/data/DTI-datasets/moodeng/val.csv
-  test_csv: /hpc/group/singhlab/user/yk307/projects/concisejepa/data/DTI-datasets/moodeng/test_remaining.csv
-  protein_embeddings_path: /hpc/group/singhlab/user/yk307/projects/concisejepa/data/DTI-datasets/moodeng/raygun_embeddings.pt
-  morgan_embeddings_path: /hpc/group/singhlab/user/yk307/projects/concisejepa/data/DTI-datasets/moodeng/morgan_embeddings.pt
-  smiles_embeddings_path: /hpc/group/singhlab/user/yk307/projects/concisejepa/data/DTI-datasets/moodeng/coati_embeddings.pt
+  train_csv: /hpc/group/singhlab/user/me196/projects/moleculerep/runs/REVICE/data/bindingdb/train.csv
+  val_csv: /hpc/group/singhlab/user/me196/projects/moleculerep/runs/REVICE/data/bindingdb/val.csv
+  test_csv: /hpc/group/singhlab/user/me196/projects/moleculerep/runs/REVICE/data/bindingdb/test.csv
+  # Save generated embeddings to this shared path.
+  protein_embeddings_path: /hpc/group/singhlab/user/cy244/projects/peptides/raygun_embeddings.pt
+  morgan_embeddings_path: /hpc/group/singhlab/user/cy244/projects/peptides/morgan_embeddings.pt
+  smiles_embeddings_path: /hpc/group/singhlab/user/cy244/projects/peptides/coati_embeddings.pt
+  embedding_device: cuda:0
+  coati_doc_url: s3://terray-public/models/grande_closed.pkl
   sequence_col: Target Sequence
   smiles_col: SMILES
   label_col: Label
