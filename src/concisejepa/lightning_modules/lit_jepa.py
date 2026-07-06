@@ -10,7 +10,35 @@ from omegaconf import DictConfig
 from rdkit import Chem, DataStructs
 from rdkit.Chem import AllChem, RDKFingerprint
 from rdkit.DataStructs.cDataStructs import BulkTanimotoSimilarity
-from torchmetrics.classification import BinaryAveragePrecision
+from torchmetrics.classification import BinaryAUROC, BinaryAveragePrecision
+
+from concisejepa.models.chem_property_head import ChemPropertyHead, compute_property_bins
+from concisejepa.models.functional_group_head import FunctionalGroupHead, compute_functional_group_bits
+
+
+def quantizer_usage_metrics(counts: torch.Tensor) -> dict[str, torch.Tensor]:
+    counts = counts.to(torch.float64)
+    total = counts.sum()
+    active = (counts > 0).sum()
+    probabilities = counts[counts > 0] / total.clamp_min(1)
+    entropy = -(probabilities * probabilities.log()).sum()
+    return {
+        "code_usage_entropy": entropy,
+        "active_code_count": active.to(torch.float64),
+        "dead_code_fraction": 1.0 - active.to(torch.float64) / counts.numel(),
+        "top_code_frequency": counts.max() / total.clamp_min(1),
+    }
+
+
+def product_quantizer_usage_metrics(
+    group_counts: torch.Tensor,
+    joint_counts: torch.Tensor,
+) -> dict[str, torch.Tensor]:
+    metrics = quantizer_usage_metrics(joint_counts)
+    for group, counts in enumerate(group_counts):
+        for name, value in quantizer_usage_metrics(counts).items():
+            metrics[f"group_{group}_{name}"] = value
+    return metrics
 
 
 class LitConciseJEPA(pl.LightningModule):
@@ -28,7 +56,18 @@ class LitConciseJEPA(pl.LightningModule):
             "val": BinaryAveragePrecision(),
             "test": BinaryAveragePrecision(),
         }
+        self.auroc_by_stage = {
+            "train": BinaryAUROC(),
+            "val": BinaryAUROC(),
+            "test": BinaryAUROC(),
+        }
+        self._quantizer_stats = {}
         self.jepa_loss = nn.MSELoss()
+
+        negative_diagonal_cfg = getattr(config, "negative_diagonal_loss", {})
+        self.negative_diagonal_loss_enabled = bool(negative_diagonal_cfg.get("enabled", True))
+        self.negative_diagonal_loss_weight = float(negative_diagonal_cfg.get("weight", 0.1))
+        self.negative_diagonal_loss_margin = float(negative_diagonal_cfg.get("margin", 0.0))
 
         forward_capture_cfg = getattr(config, "forward_capture", {})
         self.forward_capture_enabled = bool(forward_capture_cfg.get("enabled", False))
@@ -71,12 +110,43 @@ class LitConciseJEPA(pl.LightningModule):
         self._synthetic_third_digit = None
         self._reset_val_decode_state()
 
+        chem_cfg = getattr(config, "chem_supervision", {})
+        self.chem_supervision_enabled = bool(chem_cfg.get("enabled", False))
+        self.chem_supervision_weight = float(chem_cfg.get("weight", 0.1))
+        self.chem_supervision_post_fsq = bool(chem_cfg.get("post_fsq", False))
+        if self.chem_supervision_enabled:
+            latent_dim = int(config.model.concise_backbone.drug_dim)
+            self.chem_property_head = ChemPropertyHead(in_dim=latent_dim)
+        else:
+            self.chem_property_head = None
+        self._smiles_property_cache: dict[str, torch.Tensor] = {}
+
+        group_cfg = getattr(config, "group_supervision", {})
+        self.group_supervision_enabled = bool(group_cfg.get("enabled", False))
+        self.group_supervision_weight = float(group_cfg.get("weight", 0.1))
+        if self.group_supervision_enabled:
+            latent_dim = int(config.model.concise_backbone.drug_dim)
+            self.group_head = FunctionalGroupHead(in_dim=latent_dim)
+        else:
+            self.group_head = None
+        self._smiles_group_cache: dict[str, torch.Tensor] = {}
+
         self.save_hyperparameters(
             {
                 "lr": self.lr,
                 "weight_decay": self.weight_decay,
             }
         )
+
+    def _fill_property_cache(self, smiles_list: list[str]) -> None:
+        for smi in smiles_list:
+            if smi not in self._smiles_property_cache:
+                self._smiles_property_cache[smi] = compute_property_bins(smi)
+
+    def _fill_group_cache(self, smiles_list: list[str]) -> None:
+        for smi in smiles_list:
+            if smi not in self._smiles_group_cache:
+                self._smiles_group_cache[smi] = compute_functional_group_bits(smi)
 
     def _reset_val_decode_state(self) -> None:
         self._val_tanimoto_sum = 0.0
@@ -287,18 +357,73 @@ class LitConciseJEPA(pl.LightningModule):
         return similarities
 
     def on_train_start(self) -> None:
-        num_residual_layers = len(self.model.concise.d_encoder.residualfsqs)
-        levels = self.model.concise.d_encoder.get_levels()
+        d_encoder = self.model.concise.d_encoder
         print(f"\n{'='*80}")
-        print(f"[DRUG ENCODER FSQ CONFIG]")
-        print(f"  Number of ResidualFSQ layers: {num_residual_layers}")
-        print(f"  FSQ levels per layer: {levels}")
-        if num_residual_layers > 0:
-            print(f"  Total codebook combinations: {' × '.join(str(l) for l in levels[0])} per layer")
+        print(f"[DRUG ENCODER {d_encoder.quantizer_type.upper()} CONFIG]")
+        if d_encoder.quantizer_type == "fsq":
+            levels = d_encoder.get_levels()
+            print(f"  Number of ResidualFSQ layers: {len(d_encoder.residualfsqs)}")
+            print(f"  FSQ levels per layer: {levels}")
+        else:
+            print(f"  Number of product groups: {d_encoder.diveq.num_groups}")
+            print(f"  Codebook size per group: {d_encoder.codebook_size}")
+            print(f"  Group dimension: {d_encoder.diveq.group_dim}")
+            print(f"  Total discrete capacity: {d_encoder.diveq.total_capacity}")
+            print(f"  Training sigma: {d_encoder.diveq.sigma}")
+            print(f"  Replacement interval: {d_encoder.diveq.replacement_interval}")
+            print(f"  Discard threshold: {d_encoder.diveq.discard_threshold}")
         print(f"{'='*80}\n")
+
+    def _reset_quantizer_stats(self, stage: str) -> None:
+        d_encoder = self.model.concise.d_encoder
+        if d_encoder.quantizer_type != "diveq":
+            return
+        self._quantizer_stats[stage] = {
+            "group_counts": torch.zeros(
+                d_encoder.diveq.num_groups,
+                d_encoder.codebook_size,
+                dtype=torch.long,
+            ),
+            "joint_counts": torch.zeros(d_encoder.diveq.total_capacity, dtype=torch.long),
+            "error_sum": 0.0,
+            "element_count": 0,
+        }
+
+    def on_train_epoch_start(self) -> None:
+        self._reset_quantizer_stats("train")
 
     def on_validation_epoch_start(self) -> None:
         self._reset_val_decode_state()
+        self._reset_quantizer_stats("val")
+
+    @torch.no_grad()
+    def _accumulate_quantizer_stats(self, stage: str, outputs: dict[str, torch.Tensor]) -> None:
+        if stage not in self._quantizer_stats:
+            return
+        codes = outputs["codes"].detach().cpu().to(torch.long)
+        pre_quantized = outputs["pre_quantized"].detach()
+        quantized = outputs["quantized"].detach()
+        stats = self._quantizer_stats[stage]
+        codebook_size = stats["group_counts"].shape[1]
+        for group in range(codes.shape[1]):
+            stats["group_counts"][group] += torch.bincount(codes[:, group], minlength=codebook_size)
+        joint_indices = self.model.concise.d_encoder.diveq.codes_to_indices(codes)
+        stats["joint_counts"] += torch.bincount(
+            joint_indices,
+            minlength=stats["joint_counts"].numel(),
+        )
+        squared_error = (pre_quantized - quantized).pow(2)
+        stats["error_sum"] += float(squared_error.sum().cpu())
+        stats["element_count"] += int(squared_error.numel())
+
+    def _log_quantizer_stats(self, stage: str) -> None:
+        stats = self._quantizer_stats.get(stage)
+        if not stats or stats["element_count"] == 0:
+            return
+        metrics = product_quantizer_usage_metrics(stats["group_counts"], stats["joint_counts"])
+        metrics["quantization_error"] = torch.tensor(stats["error_sum"] / stats["element_count"])
+        for name, value in metrics.items():
+            self.log(f"{stage}/{name}", value.to(self.device), on_epoch=True)
 
     def _maybe_cache_fixed_protein_embedding(self, protein_embedding: torch.Tensor) -> None:
         if self._fixed_protein_embedding is not None:
@@ -416,7 +541,6 @@ class LitConciseJEPA(pl.LightningModule):
 
         fsq = self._get_primary_fsq()
         levels = fsq._levels.detach().cpu().to(torch.long)
-        basis = fsq._basis.detach().cpu().to(torch.long)
 
         first_digit, second_digit = torch.meshgrid(
             torch.arange(int(levels[0]), dtype=torch.long),
@@ -437,9 +561,8 @@ class LitConciseJEPA(pl.LightningModule):
         )
 
         digits = torch.stack([first_digit, second_digit, third_digit], dim=-1)
-        code_indices = (digits * basis.unsqueeze(0)).sum(dim=-1).unsqueeze(1)
 
-        self._synthetic_code_indices = code_indices
+        self._synthetic_code_indices = digits
         self._synthetic_first_digit = first_digit
         self._synthetic_second_digit = second_digit
         self._synthetic_third_digit = third_digit
@@ -651,6 +774,7 @@ class LitConciseJEPA(pl.LightningModule):
         plt.close(coati_fig)
 
     def on_validation_epoch_end(self) -> None:
+        self._log_quantizer_stats("val")
         if self.enable_val_smiles_decode:
             mean_tanimoto = 0.0
             if self._val_tanimoto_count > 0:
@@ -667,12 +791,35 @@ class LitConciseJEPA(pl.LightningModule):
             self.log("val/jepa_valid_pair_rate", valid_pair_rate, on_epoch=True)
             self._log_wandb_table()
 
-        self._log_synthetic_umap()
+        if self.model.concise.d_encoder.quantizer_type == "fsq":
+            self._log_synthetic_umap()
+
+    def on_train_epoch_end(self) -> None:
+        self._log_quantizer_stats("train")
 
     @staticmethod
     def _build_identity_matrix(values: list[str], device: torch.device) -> torch.Tensor:
         matrix = [[left == right for right in values] for left in values]
         return torch.tensor(matrix, dtype=torch.bool, device=device)
+
+    def _known_positive_mask(
+        self,
+        labels: torch.Tensor,
+        smiles_list: list[str],
+        sequence_list: list[str],
+        batch_size: int,
+        device: torch.device,
+    ) -> torch.Tensor:
+        positive_column_mask = (labels > 0.5).unsqueeze(0)
+        if len(smiles_list) == batch_size:
+            smiles_match = self._build_identity_matrix(smiles_list, device)
+        else:
+            smiles_match = torch.zeros((batch_size, batch_size), dtype=torch.bool, device=device)
+        if len(sequence_list) == batch_size:
+            sequence_match = self._build_identity_matrix(sequence_list, device)
+        else:
+            sequence_match = torch.zeros((batch_size, batch_size), dtype=torch.bool, device=device)
+        return (smiles_match | sequence_match) & positive_column_mask
 
     def _contrastive_logits_targets(
         self,
@@ -692,10 +839,7 @@ class LitConciseJEPA(pl.LightningModule):
             return empty_logits, empty_targets, empty_logits, empty_targets, 0
 
         eye_mask = torch.eye(batch_size, dtype=torch.bool, device=device)
-        smiles_match = self._build_identity_matrix(smiles_list, device)
-        sequence_match = self._build_identity_matrix(sequence_list, device)
-        positive_column_mask = positive_mask.unsqueeze(0)
-        known_positive_mask = (smiles_match | sequence_match) & positive_column_mask
+        known_positive_mask = self._known_positive_mask(labels, smiles_list, sequence_list, batch_size, device)
         invalid_negative_mask = known_positive_mask & ~eye_mask
 
         row_logits = similarity_logits[positive_mask].masked_fill(invalid_negative_mask[positive_mask], -1e9)
@@ -726,6 +870,35 @@ class LitConciseJEPA(pl.LightningModule):
         loss_protein_to_drug = F.cross_entropy(col_logits, col_targets)
 
         return 0.5 * (loss_drug_to_protein + loss_protein_to_drug)
+
+    def _negative_diagonal_cosine_loss(
+        self,
+        similarity_cosines: torch.Tensor,
+        labels: torch.Tensor,
+        smiles_list: list[str],
+        sequence_list: list[str],
+    ) -> torch.Tensor:
+        device = similarity_cosines.device
+        batch_size = similarity_cosines.shape[0]
+        negative_mask = labels <= 0.5
+
+        if int(negative_mask.sum().item()) == 0 or batch_size <= 1:
+            return similarity_cosines.new_zeros(())
+
+        eye_mask = torch.eye(batch_size, dtype=torch.bool, device=device)
+        known_positive_mask = self._known_positive_mask(labels, smiles_list, sequence_list, batch_size, device)
+        valid_reference_mask = ~(eye_mask | known_positive_mask)
+        valid_negative_rows = negative_mask & (valid_reference_mask.sum(dim=1) > 0)
+
+        if int(valid_negative_rows.sum().item()) == 0:
+            return similarity_cosines.new_zeros(())
+
+        row_sums = similarity_cosines.masked_fill(~valid_reference_mask, 0.0).sum(dim=1)
+        row_counts = valid_reference_mask.sum(dim=1).clamp_min(1)
+        row_means = row_sums / row_counts
+        diagonal_scores = similarity_cosines.diagonal()
+        penalties = F.relu(diagonal_scores - row_means + self.negative_diagonal_loss_margin)
+        return penalties[valid_negative_rows].mean()
 
     @staticmethod
     def _ranking_metrics_from_logits(logits: torch.Tensor, targets: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
@@ -766,7 +939,15 @@ class LitConciseJEPA(pl.LightningModule):
         self,
         batch,
         stage: str,
-    ) -> tuple[torch.Tensor, dict[str, torch.Tensor], torch.Tensor, dict[str, torch.Tensor], dict[str, torch.Tensor], int]:
+    ) -> tuple[
+        torch.Tensor,
+        dict[str, torch.Tensor],
+        torch.Tensor,
+        torch.Tensor,
+        dict[str, torch.Tensor],
+        dict[str, torch.Tensor],
+        int,
+    ]:
         protein_embedding, morgan_fingerprint, smiles_target_embedding, label = batch[:4]
         smiles_list = batch[4] if len(batch) > 4 else []
         sequence_list = batch[5] if len(batch) > 5 else []
@@ -783,11 +964,41 @@ class LitConciseJEPA(pl.LightningModule):
             smiles_list=smiles_list,
             sequence_list=sequence_list,
         )
+        loss_negative_diagonal = self._negative_diagonal_cosine_loss(
+            similarity_cosines=outputs["similarity_cosines"],
+            labels=label,
+            smiles_list=smiles_list,
+            sequence_list=sequence_list,
+        )
         loss_jepa = self.jepa_loss(outputs["jepa_pred"], smiles_target_embedding)
         loss = loss_dti + loss_jepa
+        if self.negative_diagonal_loss_enabled:
+            loss = loss + self.negative_diagonal_loss_weight * loss_negative_diagonal
+
+        loss_chem = loss.new_zeros(())
+        chem_per_prop: dict[str, torch.Tensor] = {}
+        if self.chem_supervision_enabled and self.chem_property_head is not None and smiles_list:
+            self._fill_property_cache(smiles_list)
+            chem_key = "quantized" if self.chem_supervision_post_fsq else "pre_quantized"
+            chem_inp = outputs[chem_key].squeeze(1)  # [B, latent_dim]
+            loss_chem, chem_per_prop = self.chem_property_head.loss(
+                chem_inp, smiles_list, self._smiles_property_cache
+            )
+            loss = loss + self.chem_supervision_weight * loss_chem
+
+        loss_group = loss.new_zeros(())
+        group_metrics: dict[str, torch.Tensor] = {}
+        if self.group_supervision_enabled and self.group_head is not None and smiles_list:
+            self._fill_group_cache(smiles_list)
+            pre_q = outputs["pre_quantized"].squeeze(1)  # [B, latent_dim]
+            loss_group, group_metrics = self.group_head.loss(
+                pre_q, smiles_list, self._smiles_group_cache
+            )
+            loss = loss + self.group_supervision_weight * loss_group
 
         labels = label.to(torch.int)
         auprc = self.auprc_by_stage[stage](dti_scores, labels)
+        auroc = self.auroc_by_stage[stage](dti_scores, labels)
         ranking_metrics, ranking_weight = self._contrastive_dti_ranking_metrics(
             similarity_logits=outputs["similarity_logits"],
             labels=label,
@@ -799,14 +1010,20 @@ class LitConciseJEPA(pl.LightningModule):
             "loss": loss,
             "loss_dti": loss_dti,
             "loss_jepa": loss_jepa,
+            "loss_negative_diagonal": loss_negative_diagonal,
+            "loss_chem": loss_chem,
+            **{f"loss_chem_{k}": v for k, v in chem_per_prop.items()},
+            "loss_group": loss_group,
+            **{f"loss_group_{k}": v for k, v in group_metrics.items()},
         }
-        return loss, losses, auprc, outputs, ranking_metrics, ranking_weight
+        return loss, losses, auprc, auroc, outputs, ranking_metrics, ranking_weight
 
     def _log_stage_metrics(
         self,
         stage: str,
         losses: dict[str, torch.Tensor],
         auprc: torch.Tensor,
+        auroc: torch.Tensor,
         batch_size: int,
         ranking_metrics: dict[str, torch.Tensor],
         ranking_weight: int,
@@ -834,8 +1051,57 @@ class LitConciseJEPA(pl.LightningModule):
             batch_size=batch_size,
         )
         self.log(
+            f"{stage}/loss_negative_diagonal",
+            losses["loss_negative_diagonal"],
+            on_step=False,
+            on_epoch=True,
+            batch_size=batch_size,
+        )
+        if self.chem_supervision_enabled:
+            self.log(
+                f"{stage}/loss_chem",
+                losses["loss_chem"],
+                on_step=False,
+                on_epoch=True,
+                batch_size=batch_size,
+            )
+            for key, val in losses.items():
+                if key.startswith("loss_chem_"):
+                    self.log(
+                        f"{stage}/{key}",
+                        val,
+                        on_step=False,
+                        on_epoch=True,
+                        batch_size=batch_size,
+                    )
+        if self.group_supervision_enabled:
+            self.log(
+                f"{stage}/loss_group",
+                losses["loss_group"],
+                on_step=False,
+                on_epoch=True,
+                batch_size=batch_size,
+            )
+            for key, val in losses.items():
+                if key.startswith("loss_group_"):
+                    self.log(
+                        f"{stage}/{key}",
+                        val,
+                        on_step=False,
+                        on_epoch=True,
+                        batch_size=batch_size,
+                    )
+        self.log(
             f"{stage}/dti_auprc",
             auprc,
+            on_step=False,
+            on_epoch=True,
+            prog_bar=(stage != "train"),
+            batch_size=batch_size,
+        )
+        self.log(
+            f"{stage}/dti_auroc",
+            auroc,
             on_step=False,
             on_epoch=True,
             prog_bar=(stage != "train"),
@@ -865,9 +1131,10 @@ class LitConciseJEPA(pl.LightningModule):
             )
 
     def _step(self, batch, stage: str, batch_idx: int | None = None) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
-        loss, losses, auprc, outputs, ranking_metrics, ranking_weight = self._forward_losses_metrics(batch, stage)
+        loss, losses, auprc, auroc, outputs, ranking_metrics, ranking_weight = self._forward_losses_metrics(batch, stage)
         batch_size = int(batch[3].shape[0])
-        self._log_stage_metrics(stage, losses, auprc, batch_size, ranking_metrics, ranking_weight)
+        self._log_stage_metrics(stage, losses, auprc, auroc, batch_size, ranking_metrics, ranking_weight)
+        self._accumulate_quantizer_stats(stage, outputs)
         if batch_idx is not None:
             self._maybe_capture_forward_batch(batch=batch, outputs=outputs, stage=stage, batch_idx=batch_idx)
         return loss, outputs

@@ -2,6 +2,11 @@ seed: 42
 lr: 1.0e-4
 weight_decay: 1.0e-2
 
+negative_diagonal_loss:
+  enabled: true
+  weight: 1.0
+  margin: 0.0
+
 logging:
   save_dir: .
   run_name_prefix: concisejepa
@@ -37,6 +42,15 @@ coati_validation:
   max_decode_batches_per_epoch: 1
   table_max_rows: 64
 
+chem_supervision:
+  enabled: true
+  weight: 0.1
+  post_fsq: true  # if true, supervise quantized (post-FSQ); if false, supervise pre_quantized
+
+group_supervision:
+  enabled: true
+  weight: 0.1
+
 synthetic_validation:
   enabled: false
   seed: 17
@@ -57,6 +71,8 @@ model:
     _target_: concisejepa.models.concise.Concise
     drug_layers:
       - [32, 32, 32]
+    drug_quantizer:
+      type: fsq
     ligand_dim: 2048
     residue_dim: 1280
     drug_dim: 128
@@ -74,8 +90,10 @@ datamodule:
   test_csv: /hpc/group/singhlab/user/me196/projects/moleculerep/runs/REVICE/data/bindingdb/test.csv
   # Save generated embeddings to this shared path.
   protein_embeddings_path: /hpc/group/singhlab/user/cy244/projects/peptides/raygun_embeddings.pt
-  morgan_embeddings_path: /hpc/group/singhlab/user/cy244/projects/peptides/morgan_embeddings.pt
+  morgan_embeddings_path: /hpc/group/singhlab/user/cy244/projects/peptides/count_combined_embeddings/morgan_embeddings.pt
   smiles_embeddings_path: /hpc/group/singhlab/user/cy244/projects/peptides/coati_embeddings.pt
+  fingerprint_kind: ecfp-count:4
+  fingerprint_length: 2048
   embedding_device: cuda:0
   coati_doc_url: s3://terray-public/models/grande_closed.pkl
   sequence_col: Target Sequence
