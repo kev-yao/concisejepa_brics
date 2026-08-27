@@ -22,7 +22,7 @@
 
 module purge
 eval "$(micromamba shell hook --shell=bash)"
-micromamba activate concise311-gpu
+micromamba activate /hpc/group/singhlab/user/cy244/projects/micromamba/envs/concise311-gpu
 
 PROJECT_ROOT="/hpc/home/cy244/projects/concisejepa"
 cd "$PROJECT_ROOT"

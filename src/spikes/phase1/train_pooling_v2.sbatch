@@ -1,20 +1,28 @@
 #!/bin/bash
-# train_pooling.sbatch — Train one fragment pooling variant.
-# Submit as a job array to run all 5 in parallel:
-#   sbatch --array=0-4 train_pooling.sbatch
+# train_pooling_v2.sbatch — Phase 2 pooling ablation (8 experiments).
+# Builds on Phase 1 results (latent_query + weighted_sum were best).
 #
-# Or individually:
-#   POOLING_STRATEGY=mean sbatch train_pooling.sbatch
+# Experiments:
+#   0: latent_query_q1          — n_queries=1 (single learned query / CLS-token style)
+#   1: latent_query_q2          — n_queries=2
+#   2: latent_query_q8          — n_queries=8
+#   3: whole_mol                — whole-molecule FP baseline (no fragmentation)
+#   4: pre_attn_latent_query    — fragment self-attention then latent query (n_queries=4)
+#   5: mlp_weighted_sum         — 2-layer MLP scorer instead of linear
+#   6: multi_head_weighted_sum_k2 — 2 independent weighted sums concatenated
+#   7: multi_head_weighted_sum_k4 — 4 independent weighted sums concatenated
 #
-#SBATCH --job-name=frag_pool
+# Submit: sbatch --array=0-7 train_pooling_v2.sbatch
+#
+#SBATCH --job-name=frag_pool_v2
 #SBATCH --partition=scavenger-gpu
 #SBATCH --gres=gpu:1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=64G
 #SBATCH --time=12:00:00
-#SBATCH --output=/hpc/group/singhlab/user/cy244/projects/peptide_evals/fragment_pool_study/train_%A_%a.log
-#SBATCH --error=/hpc/group/singhlab/user/cy244/projects/peptide_evals/fragment_pool_study/train_%A_%a.err
+#SBATCH --output=/hpc/group/singhlab/user/cy244/projects/peptide_evals/fragment_pool_study/v2_train_%A_%a.log
+#SBATCH --error=/hpc/group/singhlab/user/cy244/projects/peptide_evals/fragment_pool_study/v2_train_%A_%a.err
 
 set -e
 set -o pipefail
@@ -24,20 +32,24 @@ set +u
 
 mkdir -p /hpc/group/singhlab/user/cy244/projects/peptide_evals/fragment_pool_study
 
-# Map array index → pooling strategy (used when run as job array)
-POOLING_STRATEGIES=(mean max weighted_sum cross_attention latent_query)
-if [[ -n "${SLURM_ARRAY_TASK_ID:-}" ]]; then
-    POOLING_STRATEGY="${POOLING_STRATEGIES[$SLURM_ARRAY_TASK_ID]}"
-fi
-# Fall back to env var or default
-POOLING_STRATEGY="${POOLING_STRATEGY:-mean}"
+POOLING_STRATEGIES=(
+    latent_query_q1
+    latent_query_q2
+    latent_query_q8
+    whole_mol
+    pre_attn_latent_query
+    mlp_weighted_sum
+    multi_head_weighted_sum_k2
+    multi_head_weighted_sum_k4
+)
+POOLING_STRATEGY="${POOLING_STRATEGIES[$SLURM_ARRAY_TASK_ID]}"
 
-echo "===== FRAGMENT POOL TRAINING ====="
-echo "JOBID=$SLURM_JOB_ID  ARRAY_TASK=${SLURM_ARRAY_TASK_ID:-none}"
+echo "===== FRAGMENT POOL TRAINING v2 ====="
+echo "JOBID=$SLURM_JOB_ID  ARRAY_TASK=${SLURM_ARRAY_TASK_ID}"
 echo "POOLING_STRATEGY=$POOLING_STRATEGY"
 hostname
 date
-echo "=================================="
+echo "======================================"
 
 module purge
 eval "$(micromamba shell hook --shell=bash)"
@@ -47,8 +59,8 @@ export LD_PRELOAD="$CONDA_PREFIX/lib/libstdc++.so.6"
 
 PROJECT_ROOT=/hpc/home/cy244/projects/concisejepa
 export PYTHONPATH="$PROJECT_ROOT/src:${PYTHONPATH:-}"
-export TORCH_HOME="/tmp/torch_${SLURM_JOB_ID:-manual}"
-export TMPDIR="/tmp/${USER}/frag_${SLURM_JOB_ID:-manual}"
+export TORCH_HOME="/tmp/torch_${SLURM_JOB_ID}"
+export TMPDIR="/tmp/${USER}/frag_${SLURM_JOB_ID}"
 mkdir -p "$TMPDIR"
 export TMP="$TMPDIR" TEMP="$TMPDIR"
 

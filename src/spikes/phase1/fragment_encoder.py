@@ -1,8 +1,26 @@
-# phase1_fragment_encoder.py — ConciseFragment and ConciseJEPAFragment.
-#
-# Replaces the whole-molecule Morgan FP with BRICS fragment FPs: each fragment gets
-# its own FSQ code via the shared DrugEncoder, then fragments are pooled into one
-# molecule embedding before the rest of the Concise pipeline runs unchanged.
+"""fragment_encoder.py — the core fragment-based model: ConciseFragment + ConciseJEPAFragment.
+
+This is the central file of the whole fragment-level project. It replaces the original
+ConciseJEPA's whole-molecule Morgan fingerprint with BRICS fragment fingerprints: each
+fragment gets its own FSQ code via a shared DrugEncoder, the per-fragment embeddings are
+combined ("pooled" — see fragment_pooling.py for the pooling strategies compared throughout
+this project) into one molecule embedding, and everything downstream of that (drug-target
+binding scoring, JEPA prediction) runs unchanged from the original Concise architecture.
+
+Two classes:
+  - ConciseFragment       — the DTI (binding-prediction) model. Fragment encode -> pool ->
+                            pairwise drug/protein attention -> binding score.
+  - ConciseJEPAFragment   — wraps ConciseFragment and adds an MLP predictor head that maps
+                            (drug, protein) context to a 256-d COATI embedding (the "JEPA"
+                            reconstruction/generation target). This is the drop-in-replaceable
+                            predictor: fragment_xattn.py's ConciseJEPAFragmentXAttn is an
+                            alternate predictor with the same interface (see that file for the
+                            cross-attention variant that turned out to reconstruct much better).
+
+Trained via lit_fragment.py / fragment_train.py; loaded and evaluated by nearly every script
+in scripts/ (jepa_reconstruct.py, jepa_denovo.py, the attribution scripts, the embedding-
+retrieval scripts, etc.) — this is the one file almost everything else in the project imports.
+"""
 
 import torch
 import torch.nn as nn
@@ -105,8 +123,11 @@ class ConciseFragment(nn.Module):
         frag_fps: torch.Tensor,   # [B, F, ligand_dim]
         frag_mask: torch.Tensor,  # [B, F] bool — True = valid fragment
         r_emb_raw: torch.Tensor,  # [B, 50, residue_dim] — only used by CrossAttentionPool
-    ) -> tuple[torch.Tensor, torch.Tensor]:
-        """Returns mol_emb [B, drug_dim] and frag_codes [B, F, n_factors]."""
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Returns mol_emb [B, drug_dim], frag_codes [B, F, n_factors], and the
+        UNPOOLED per-fragment embeddings frag_embs [B, F, drug_dim] (needed by
+        multi-token predictors that attend over fragments directly instead of a
+        single pooled vector — see ConciseJEPAFragmentXAttn)."""
         B, F, D = frag_fps.shape
         flat = frag_fps.reshape(B * F, D)
         d_outs = self.d_encoder(flat)
@@ -119,7 +140,7 @@ class ConciseFragment(nn.Module):
         else:
             mol_emb = self.pooling_layer(frag_embs, frag_mask)
 
-        return mol_emb, frag_codes
+        return mol_emb, frag_codes, frag_embs
 
     # ------------------------------------------------------------------
     # Protein residue pooling (unchanged from Concise)
@@ -192,7 +213,7 @@ class ConciseFragment(nn.Module):
         frag_mask: torch.Tensor,  # [B, F] bool
         r_emb: torch.Tensor,      # [B, 50, residue_dim]
     ) -> dict[str, torch.Tensor]:
-        mol_emb, frag_codes = self._encode_fragments(frag_fps, frag_mask, r_emb)
+        mol_emb, frag_codes, frag_embs = self._encode_fragments(frag_fps, frag_mask, r_emb)
 
         # Drug path: [B, drug_dim] → [B, 1, proj_dim]
         d_emb = self.d_project(mol_emb.unsqueeze(1))  # [B, 1, proj_dim]
@@ -218,6 +239,11 @@ class ConciseFragment(nn.Module):
             "binding": binding,           # [B]
             "pairwise_binding": pairwise_binding,  # [B, B]
             "frag_codes": frag_codes,     # [B, F, n_factors]
+            "pooled_drug_emb": mol_emb,   # [B, drug_dim] — post-FSQ, post-pooling; analog of
+                                          # Concise's single-token "quantized" embedding, used
+                                          # for chem/group auxiliary supervision.
+            "frag_embs": frag_embs,       # [B, F, drug_dim] — UNPOOLED per-fragment embeddings,
+                                          # for multi-token predictors (ConciseJEPAFragmentXAttn).
         }
 
 
@@ -279,4 +305,5 @@ class ConciseJEPAFragment(nn.Module):
             "protein_features": protein_features,
             "similarity_cosines": similarity_cosines,
             "similarity_logits": similarity_logits,
+            "pooled_drug_emb": dti_out["pooled_drug_emb"],
         }

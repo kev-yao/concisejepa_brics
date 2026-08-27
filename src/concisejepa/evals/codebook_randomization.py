@@ -105,11 +105,36 @@ def _perturb_codes(
 ) -> torch.Tensor:
     """Perturb one logical unit (residual layer or internal factor) and return modified codes."""
     residual_layer = int(unit["residual_layer"])
-    if residual_layer >= codes.shape[1]:
-        raise ValueError(f"Layer index {residual_layer} out of range for codes shape {codes.shape}")
-
     perturbed = codes.clone()
     factor_index = unit["factor_index"]
+    factor_levels = _levels_to_int_list(levels[residual_layer])
+
+    # Hybrid FSQ exposes its single layer as one integer column per factor.
+    if len(levels) == 1 and codes.shape[1] == len(factor_levels):
+        if factor_index is None:
+            for idx, level in enumerate(factor_levels):
+                perturbed[:, idx] = torch.randint(
+                    low=0,
+                    high=int(level),
+                    size=(codes.shape[0],),
+                    device=device,
+                    generator=generator,
+                    dtype=perturbed.dtype,
+                )
+        else:
+            factor_index = int(factor_index)
+            perturbed[:, factor_index] = torch.randint(
+                low=0,
+                high=int(factor_levels[factor_index]),
+                size=(codes.shape[0],),
+                device=device,
+                generator=generator,
+                dtype=perturbed.dtype,
+            )
+        return perturbed
+
+    if residual_layer >= codes.shape[1]:
+        raise ValueError(f"Layer index {residual_layer} out of range for codes shape {codes.shape}")
 
     if factor_index is None:
         max_code = int(unit["codebook_size"])
@@ -125,7 +150,6 @@ def _perturb_codes(
         perturbed[:, residual_layer] = rand_codes
         return perturbed
 
-    factor_levels = _levels_to_int_list(levels[residual_layer])
     factor_index = int(factor_index)
     if factor_index >= len(factor_levels):
         raise ValueError(
@@ -205,7 +229,7 @@ def _load_concise_backbone(
             "Please pass a .ckpt file produced by PyTorch Lightning."
         )
 
-    lit_module.load_state_dict(state_dict, strict=False)
+    lit_module.load_state_dict(state_dict, strict=True)
     model = lit_module.model.concise
     model.to(device)
     model.eval()
@@ -241,15 +265,19 @@ def _run_ap(
                 if perturb_unit is None:
                     out = model(ligand, receptor, is_morgan_fingerprint=True)
                 else:
-                    codes = model.codes(ligand)
+                    encoded = model.d_encoder(ligand)
                     perturbed_codes = _perturb_codes(
-                        codes=codes,
+                        codes=encoded["codes"],
                         levels=levels,
                         unit=perturb_unit,
                         device=device,
                         generator=gen,
                     )
-                    out = model(perturbed_codes, receptor, is_morgan_fingerprint=False)
+                    out = model(
+                        perturbed_codes,
+                        receptor,
+                        is_morgan_fingerprint=False,
+                    )
 
                 ap.update(out["binding"].detach(), label)
         return float(ap.compute().detach().cpu().item())

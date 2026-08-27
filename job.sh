@@ -25,7 +25,7 @@ echo "========================"
 
 module purge
 eval "$(micromamba shell hook --shell=bash)"
-micromamba activate concise311-gpu
+micromamba activate /hpc/group/singhlab/user/cy244/projects/micromamba/envs/concise311-gpu
 export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:${LD_LIBRARY_PATH:-}"
 
 PROJECT_ROOT=/hpc/home/cy244/projects/concisejepa
@@ -130,20 +130,27 @@ CONFIG_PATH="$PROJECT_ROOT/configs/config.yaml"
  TRAIN_CSV="/hpc/group/singhlab/user/cy244/projects/peptides/BindingDB_embeddings/train.csv"
  VAL_CSV="/hpc/group/singhlab/user/cy244/projects/peptides/BindingDB_embeddings/val.csv"
  TEST_CSV="/hpc/group/singhlab/user/cy244/projects/peptides/BindingDB_embeddings/test.csv"
- PROTEIN_EMB_PATH="/hpc/group/singhlab/user/cy244/projects/peptides/combined_embeddings/raygun_embeddings.pt"
- MORGAN_EMB_PATH="/hpc/group/singhlab/user/cy244/projects/peptides/combined_embeddings/morgan_embeddings.pt"
- SMILES_EMB_PATH="/hpc/group/singhlab/user/cy244/projects/peptides/combined_embeddings/coati_embeddings.pt"
+ PROTEIN_EMB_PATH="/hpc/group/singhlab/user/cy244/projects/peptides/count_combined_embeddings/raygun_embeddings.pt"
+ MORGAN_EMB_PATH="/hpc/group/singhlab/user/cy244/projects/peptides/count_combined_embeddings/morgan_embeddings.pt"
+ SMILES_EMB_PATH="/hpc/group/singhlab/user/cy244/projects/peptides/count_combined_embeddings/coati_embeddings.pt"
 
-
+#  TRAIN_CSV= "/hpc/group/singhlab/user/me196/projects/moleculerep/runs/REVICE/data/moodeng/train.csv"
+#   VAL_CSV= "/hpc/group/singhlab/user/yk307/projects/concisejepa/data/DTI-datasets/moodeng/val.csv"
+#   TEST_CSV= "/hpc/group/singhlab/user/yk307/projects/concisejepa/data/DTI-datasets/moodeng/test_remaining.csv"
+#   PROTEIN_EMB_PATH= "/hpc/group/singhlab/user/yk307/projects/concisejepa/data/DTI-datasets/moodeng/raygun_embeddings.pt"
+#   MORGAN_EMB_PATH= "/hpc/group/singhlab/user/yk307/projects/concisejepa/data/DTI-datasets/moodeng/morgan_embeddings.pt"
+#   SMILES_EMB_PATH= "/hpc/group/singhlab/user/yk307/projects/concisejepa/data/DTI-datasets/moodeng/coati_embeddings.pt"
 
 SEED="${SEED:-42}"
 LR="${LR:-1e-4}"
 WEIGHT_DECAY="${WEIGHT_DECAY:-1e-2}"
-MAX_EPOCHS="${MAX_EPOCHS:-20}"
+MAX_EPOCHS="${MAX_EPOCHS:-30}"
 BATCH_SIZE="${BATCH_SIZE:-256}"
 ENABLE_COATI_VALIDATION="${ENABLE_COATI_VALIDATION:-true}"
 NUM_WORKERS="${NUM_WORKERS:-0}"
 PERSISTENT_WORKERS="${PERSISTENT_WORKERS:-false}"
+
+DRUG_QUANTIZER_TYPE="fsq"
 
 CHECKPOINT_DIR="$RUN_DIR/checkpoints"
 
@@ -161,6 +168,7 @@ echo "NUM_WORKERS=$NUM_WORKERS"
 echo "PERSISTENT_WORKERS=$PERSISTENT_WORKERS"
 echo "TRAINER_ACCELERATOR=$TRAINER_ACCELERATOR"
 echo "TRAINER_DEVICES=$TRAINER_DEVICES"
+echo "DRUG_QUANTIZER_TYPE=$DRUG_QUANTIZER_TYPE"
 
 python "$PROJECT_ROOT/main.py" \
   --config-path "$PROJECT_ROOT/configs" \
@@ -168,6 +176,7 @@ python "$PROJECT_ROOT/main.py" \
   seed="$SEED" \
   lr="$LR" \
   weight_decay="$WEIGHT_DECAY" \
+  model.concise_backbone.drug_quantizer.type="$DRUG_QUANTIZER_TYPE" \
   trainer.max_epochs="$MAX_EPOCHS" \
   trainer.accelerator="$TRAINER_ACCELERATOR" \
   trainer.devices="$TRAINER_DEVICES" \

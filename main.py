@@ -11,8 +11,10 @@ from pytorch_lightning.callbacks import Callback, ModelCheckpoint, TQDMProgressB
 from pytorch_lightning.loggers import CSVLogger
 
 from concisejepa.datamodules import BindingDBDictDataModule
+from concisejepa.datamodules.dataloader import _validate_fingerprint_model_dimensions
 from concisejepa.lightning_modules import LitConciseJEPA
 from concisejepa.evals.FSQ_monitor import FSQMonitorCallback
+from concisejepa.evals.chem_codebook_eval import ChemCodebookEvalCallback
 
 
 class EpochMetricsWriter(Callback):
@@ -75,6 +77,10 @@ def main(cfg: DictConfig) -> None:
     torch.serialization.add_safe_globals([DictConfig, ListConfig])
     pl.seed_everything(cfg.seed, workers=True)
 
+    fingerprint_length = int(getattr(cfg.datamodule, "fingerprint_length", 2048))
+    ligand_dim = int(cfg.model.concise_backbone.ligand_dim)
+    _validate_fingerprint_model_dimensions(fingerprint_length, ligand_dim)
+
     run_id = str(uuid.uuid4())[:8]
     run_name = f"{cfg.logging.run_name_prefix}-{run_id}"
     metrics_dir = os.path.join(cfg.logging.save_dir, run_name)
@@ -92,47 +98,73 @@ def main(cfg: DictConfig) -> None:
 
     checkpoint_dir = os.path.join(cfg.checkpoint.dir, run_name)
     os.makedirs(checkpoint_dir, exist_ok=True)
+    # Best-by-monitor checkpoint, kept for reference only. auto_insert_metric_name=False
+    # avoids a real bug found in the fragment-pooling training script: Lightning's default
+    # filename formatting prepends the raw metric NAME before its value, and since the
+    # monitored key contains a literal "/" (e.g. "val/dti_auprc"), that slash lands in the
+    # filename and silently creates a spurious subdirectory — which also appears to break
+    # save_last's independence from the monitor. Final-epoch weights are now guaranteed by
+    # a fully separate, monitor-free callback below instead of relying on save_last at all.
     checkpoint_callback = ModelCheckpoint(
         dirpath=checkpoint_dir,
         filename=cfg.checkpoint.filename,
+        auto_insert_metric_name=False,
         monitor=cfg.checkpoint.monitor,
         mode=cfg.checkpoint.mode,
         save_top_k=cfg.checkpoint.save_top_k,
-        save_last=cfg.checkpoint.save_last,
+        save_last=False,
+    )
+    # Guaranteed true-final-epoch checkpoint, independent of any monitored metric — this is
+    # the canonical checkpoint used for testing and all downstream evaluation.
+    final_checkpoint_callback = ModelCheckpoint(
+        dirpath=checkpoint_dir,
+        filename="final",
+        monitor=None,
+        save_top_k=1,
     )
     progress_bar_callback = TQDMProgressBar()
     metrics_callback = EpochMetricsWriter(output_dir=metrics_dir)
-    
-    fsq_monitor_dir = os.path.join(metrics_dir, "fsq_logs")
-    fsq_monitor_callback = FSQMonitorCallback(
-        output_dir=fsq_monitor_dir,
-        num_codes=32,
-        monitor_train=False,
-    )
+
+    callbacks = [checkpoint_callback, final_checkpoint_callback, progress_bar_callback, metrics_callback]
+    quantizer_type = str(cfg.model.concise_backbone.drug_quantizer.type).lower()
+    fsq_monitor_dir = None
+    if quantizer_type == "fsq":
+        fsq_monitor_dir = os.path.join(metrics_dir, "fsq_logs")
+        callbacks.append(
+            FSQMonitorCallback(
+                output_dir=fsq_monitor_dir,
+                num_codes=32,
+                monitor_train=True,
+                monitor_validation=True,
+            )
+        )
+    callbacks.append(ChemCodebookEvalCallback())
 
     lit_module = LitConciseJEPA(cfg)
     data_module = BindingDBDictDataModule(cfg.datamodule)
 
     trainer = pl.Trainer(
         logger=csv_logger,
-        callbacks=[checkpoint_callback, progress_bar_callback, metrics_callback, fsq_monitor_callback],
+        callbacks=callbacks,
         **cfg.trainer,
     )
 
     trainer.fit(lit_module, datamodule=data_module)
 
     best_ckpt = checkpoint_callback.best_model_path
-    last_ckpt = checkpoint_callback.last_model_path
-    test_ckpt = best_ckpt or last_ckpt or None
+    final_ckpt = final_checkpoint_callback.best_model_path
+    test_ckpt = final_ckpt or None
     if test_ckpt:
-        print(f"Testing with checkpoint: {test_ckpt}")
+        print(f"Testing with FINAL-EPOCH checkpoint: {test_ckpt}")
+        print(f"(best-by-monitor checkpoint, for reference only: {best_ckpt})")
     else:
-        print("No saved best/last checkpoint found; testing with current in-memory weights.")
+        print("No saved final checkpoint found; testing with current in-memory weights.")
     trainer.test(lit_module, datamodule=data_module, ckpt_path=test_ckpt)
     print(f"Epoch metrics JSONL: {os.path.join(metrics_dir, 'epoch_metrics.jsonl')}")
     print(f"Final metrics JSON: {os.path.join(metrics_dir, 'final_metrics.json')}")
     print(f"Lightning metrics CSV: {os.path.join(metrics_dir, 'version_0', 'metrics.csv')}")
-    print(f"FSQ monitoring logs: {fsq_monitor_dir}")
+    if fsq_monitor_dir is not None:
+        print(f"FSQ monitoring logs: {fsq_monitor_dir}")
     if bool(forward_capture_cfg.get("enabled", False)):
         print(f"Forward capture JSON: {cfg.forward_capture.output_path}")
 

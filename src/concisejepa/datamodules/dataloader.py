@@ -1,3 +1,5 @@
+import json
+import re
 from pathlib import Path
 from typing import Dict, Sequence
 
@@ -22,6 +24,66 @@ def _resolve_embedding_path(path_value, csv_path: str | Path, default_filename: 
     if normalized:
         return Path(normalized)
     return Path(csv_path).resolve().parent / default_filename
+
+
+def _fingerprint_default_filename(fingerprint_kind: str, fingerprint_length: int) -> str:
+    normalized_kind = re.sub(r"[^a-z0-9]+", "_", fingerprint_kind.lower()).strip("_")
+    return f"morgan_{normalized_kind}_{fingerprint_length}.pt"
+
+
+def _fingerprint_metadata_path(embedding_path: Path) -> Path:
+    return Path(f"{embedding_path}.meta.json")
+
+
+def _validate_fingerprint_model_dimensions(fingerprint_length: int, ligand_dim: int) -> None:
+    if fingerprint_length != ligand_dim:
+        raise ValueError(
+            "Fingerprint/model dimension mismatch: "
+            f"datamodule.fingerprint_length={fingerprint_length}, "
+            f"model.concise_backbone.ligand_dim={ligand_dim}."
+        )
+
+
+def _fingerprint_metadata(
+    fingerprint_kind: str,
+    fingerprint_length: int,
+    source_csv_paths: Sequence[str | Path],
+) -> dict[str, object]:
+    return {
+        "embedding_type": "morgan_fingerprint",
+        "fingerprint_kind": fingerprint_kind,
+        "fingerprint_length": fingerprint_length,
+        "molfeat_transformer": "FPVecTransformer",
+        "source_csv_paths": [str(Path(path).resolve()) for path in source_csv_paths],
+    }
+
+
+def _validate_fingerprint_metadata(
+    embedding_path: Path,
+    fingerprint_kind: str,
+    fingerprint_length: int,
+) -> None:
+    metadata_path = _fingerprint_metadata_path(embedding_path)
+    if not metadata_path.exists():
+        raise RuntimeError(
+            f"Fingerprint metadata is missing for {embedding_path}. Expected {metadata_path}. "
+            "The file may contain binary or otherwise incompatible fingerprints; remove it or provide a "
+            "verified fingerprint file so ConciseJEPA can regenerate it."
+        )
+
+    try:
+        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise RuntimeError(f"Could not read fingerprint metadata from {metadata_path}: {exc}") from exc
+
+    actual_kind = metadata.get("fingerprint_kind")
+    actual_length = metadata.get("fingerprint_length")
+    if actual_kind != fingerprint_kind or actual_length != fingerprint_length:
+        raise RuntimeError(
+            f"Fingerprint metadata mismatch for {embedding_path}: requested kind={fingerprint_kind!r}, "
+            f"length={fingerprint_length}, but metadata records kind={actual_kind!r}, length={actual_length!r}. "
+            "Use a matching embedding file or remove the file and its metadata to regenerate it."
+        )
 
 
 def _coati_tensor_from_output(output: object) -> torch.Tensor | None:
@@ -99,10 +161,16 @@ def _collect_unique_sequences_and_smiles(
     return sorted(sequences), sorted(smiles)
 
 
-def _build_morgan_embeddings(smiles_values: list[str], output_path: Path) -> None:
+def _build_morgan_embeddings(
+    smiles_values: list[str],
+    output_path: Path,
+    fingerprint_kind: str,
+    fingerprint_length: int,
+    source_csv_paths: Sequence[str | Path],
+) -> None:
     from molfeat.trans.fp import FPVecTransformer
 
-    transformer = FPVecTransformer(kind="ecfp:4", length=2048, verbose=True)
+    transformer = FPVecTransformer(kind=fingerprint_kind, length=fingerprint_length, verbose=True)
     valid_features, valid_ids = transformer(smiles_values, ignore_errors=True)
 
     embeddings: dict[str, torch.Tensor] = {}
@@ -111,6 +179,11 @@ def _build_morgan_embeddings(smiles_values: list[str], output_path: Path) -> Non
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     torch.save(embeddings, output_path)
+    metadata = _fingerprint_metadata(fingerprint_kind, fingerprint_length, source_csv_paths)
+    _fingerprint_metadata_path(output_path).write_text(
+        json.dumps(metadata, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
 
 
 def _build_protein_embeddings(sequences: list[str], output_path: Path, device: str) -> None:
@@ -314,6 +387,10 @@ class BindingDBDictDataModule(pl.LightningDataModule):
 
         self.embedding_device = getattr(cfg, "embedding_device", "cuda:0" if torch.cuda.is_available() else "cpu")
         self.coati_doc_url = getattr(cfg, "coati_doc_url", "s3://terray-public/models/grande_closed.pkl")
+        self.fingerprint_kind = str(getattr(cfg, "fingerprint_kind", "ecfp-count:4"))
+        self.fingerprint_length = int(getattr(cfg, "fingerprint_length", 2048))
+        if self.fingerprint_length <= 0:
+            raise ValueError(f"fingerprint_length must be positive, got {self.fingerprint_length}.")
         self.protein_embeddings_path = _resolve_embedding_path(
             path_value=getattr(cfg, "protein_embeddings_path", ""),
             csv_path=self.train_csv,
@@ -322,7 +399,7 @@ class BindingDBDictDataModule(pl.LightningDataModule):
         self.morgan_embeddings_path = _resolve_embedding_path(
             path_value=getattr(cfg, "morgan_embeddings_path", ""),
             csv_path=self.train_csv,
-            default_filename="morgan_embeddings.pt",
+            default_filename=_fingerprint_default_filename(self.fingerprint_kind, self.fingerprint_length),
         )
         self.smiles_embeddings_path = _resolve_embedding_path(
             path_value=getattr(cfg, "smiles_embeddings_path", ""),
@@ -331,10 +408,23 @@ class BindingDBDictDataModule(pl.LightningDataModule):
         )
 
         self._ensure_embedding_files_exist()
+        _validate_fingerprint_metadata(
+            embedding_path=self.morgan_embeddings_path,
+            fingerprint_kind=self.fingerprint_kind,
+            fingerprint_length=self.fingerprint_length,
+        )
 
         self.protein_embeddings = torch.load(self.protein_embeddings_path, map_location="cpu")
         self.morgan_embeddings = torch.load(self.morgan_embeddings_path, map_location="cpu")
         self.smiles_embeddings = torch.load(self.smiles_embeddings_path, map_location="cpu")
+        invalid_fingerprint_shapes = {
+            tuple(value.shape) for value in self.morgan_embeddings.values() if value.numel() != self.fingerprint_length
+        }
+        if invalid_fingerprint_shapes:
+            raise RuntimeError(
+                f"Fingerprint tensors in {self.morgan_embeddings_path} do not have the configured length "
+                f"{self.fingerprint_length}. Invalid shapes include: {sorted(invalid_fingerprint_shapes)}"
+            )
         self.valid_smiles = set(self.morgan_embeddings.keys()) & set(self.smiles_embeddings.keys())
         self.valid_sequences = set(self.protein_embeddings.keys())
         if len(self.smiles_embeddings) == 0:
@@ -360,8 +450,9 @@ class BindingDBDictDataModule(pl.LightningDataModule):
         self.test_dataset = None
 
     def _ensure_embedding_files_exist(self) -> None:
+        source_csv_paths = [self.train_csv, self.val_csv, self.test_csv]
         sequence_values, smiles_values = _collect_unique_sequences_and_smiles(
-            csv_paths=[self.train_csv, self.val_csv, self.test_csv],
+            csv_paths=source_csv_paths,
             sequence_col=self.sequence_col,
             smiles_col=self.smiles_col,
         )
@@ -378,6 +469,9 @@ class BindingDBDictDataModule(pl.LightningDataModule):
             _build_morgan_embeddings(
                 smiles_values=smiles_values,
                 output_path=self.morgan_embeddings_path,
+                fingerprint_kind=self.fingerprint_kind,
+                fingerprint_length=self.fingerprint_length,
+                source_csv_paths=source_csv_paths,
             )
         if not self.smiles_embeddings_path.exists():
             print(f"[BindingDBDictDataModule] Building COATI embeddings at {self.smiles_embeddings_path}")

@@ -1,23 +1,18 @@
 import torch
 from einops.layers.torch import Rearrange
 import torch.nn as nn
-from typing import List, Dict, Type
+from typing import Any, List, Dict, Type
 from .fsq import ResidualFSQ
+from .diveq import ProductDiVeQQuantizer
 
 
 class DrugEncoder(torch.nn.Module):
     """
 
-    Architecture:
-        1. Pre-transformation: Input -> Linear -> Activation -> Linear -> Activation
-        2. Series of ResidualFSQ layers that each:
-           - Quantize the input
-           - Compute residual
-           - Pass residual to next layer
+    Drug encoder with residual finite scalar quantization layers.
 
     Args:
-        layers (List[List[int]]): Configuration for FSQ layers. Each inner list specifies the
-            quantization levels for a single ResidualFSQ layer.
+        layers (List[List[int]]): Quantization levels for each ResidualFSQ layer.
         dim (int, optional): Input dimension of the drug representation. Defaults to 2048.
         latent_dim (int, optional): Dimension of the latent space after pre-transformation.
             Defaults to 128.
@@ -25,16 +20,15 @@ class DrugEncoder(torch.nn.Module):
             the network. Defaults to nn.Tanh.
 
     Attributes:
-        residualfsqs (torch.nn.ModuleList): List of ResidualFSQ layers.
-        pre_transform (torch.nn.Sequential): Pre-transformation network that processes the
-            input before quantization.
+        residualfsqs (torch.nn.ModuleList): ResidualFSQ layers.
+        pre_transform (torch.nn.Sequential): Fingerprint projection before quantization.
 
     Shape:
         - Input: (batch_size, dim)
         - Output: Dict containing:
             - codes: (batch_size, num_layers)
             - emb: (batch_size, num_layers, latent_dim)
-            - points: (batch_size, num_layers, latent_dim)
+            - points: (batch_size, num_layers, fsq_dim)
     """
 
     residualfsqs: torch.nn.ModuleList
@@ -46,14 +40,52 @@ class DrugEncoder(torch.nn.Module):
         dim: int = 2048,
         latent_dim: int = 128,
         activation: Type[torch.nn.Module] = nn.Tanh,
+        quantizer: Dict[str, Any] | None = None,
     ) -> None:
         super(DrugEncoder, self).__init__()
 
         # Initialize pre-transformation network
         self.pre_transform = self._build_pre_transform(dim, latent_dim, activation)
 
-        # Initialize ResidualFSQ layers
-        self.residualfsqs = self._build_residual_fsq_layers(layers, latent_dim, activation)
+        quantizer = dict(quantizer or {"type": "fsq"})
+        self.quantizer_type = str(quantizer.get("type", "fsq")).lower()
+        self.residualfsqs = torch.nn.ModuleList()
+        self.diveq = None
+        if self.quantizer_type == "fsq":
+            if len(layers) != 1:
+                raise ValueError("Hybrid FSQ requires exactly one drug_layers entry")
+            self.residualfsqs = self._build_residual_fsq_layers(layers, latent_dim, activation)
+            if not self.residualfsqs:
+                raise ValueError("FSQ requires at least one drug_layers entry")
+            self.num_tokens = len(self.residualfsqs)
+            self.codebook_size = None
+        elif self.quantizer_type == "diveq":
+            num_groups = int(quantizer.get("num_groups", 3))
+            codebook_size = int(quantizer.get("codebook_size", 32))
+            group_dim = int(quantizer.get("group_dim", 1))
+            expected_levels = [codebook_size] * num_groups
+            if len(layers) != 1 or list(layers[0]) != expected_levels:
+                raise ValueError(
+                    "Product DiVeQ capacity must match drug_layers; expected "
+                    f"drug_layers=[{expected_levels}], got {layers}"
+                )
+            self.diveq = ProductDiVeQQuantizer(
+                dim=latent_dim,
+                num_groups=num_groups,
+                codebook_size=codebook_size,
+                group_dim=group_dim,
+                sigma=float(quantizer.get("sigma", 0.01)),
+                replacement_interval=int(quantizer.get("replacement_interval", 100)),
+                discard_threshold=float(quantizer.get("discard_threshold", 0.01)),
+                replacement_perturbation=float(quantizer.get("replacement_perturbation", 1e-9)),
+                activation=activation,
+            )
+            self.num_tokens = 1
+            self.codebook_size = self.diveq.codebook_size
+            self.num_groups = self.diveq.num_groups
+            self.total_code_capacity = self.diveq.total_capacity
+        else:
+            raise ValueError(f"Unknown drug quantizer type: {self.quantizer_type!r}")
 
     def _build_pre_transform(self, dim: int, latent_dim: int, activation: Type[torch.nn.Module]) -> torch.nn.Sequential:
         """Builds the pre-transformation network."""
@@ -62,7 +94,7 @@ class DrugEncoder(torch.nn.Module):
             torch.nn.Linear(dim, dim // 2),
             activation(),
             torch.nn.Linear(dim // 2, latent_dim),
-            activation(),
+            torch.nn.Identity(),
         )
 
     def _build_residual_fsq_layers(
@@ -71,7 +103,6 @@ class DrugEncoder(torch.nn.Module):
         latent_dim: int,
         activation: Type[torch.nn.Module],
     ) -> torch.nn.ModuleList:
-        """Builds the sequence of ResidualFSQ layers."""
         return torch.nn.ModuleList(
             [
                 ResidualFSQ(
@@ -86,72 +117,50 @@ class DrugEncoder(torch.nn.Module):
 
     def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
         """
-        Forward pass of the DrugEncoder. (Algorithm 2 in Supplementary Information)
+        Project and quantize Morgan fingerprints.
 
         Args:
             x (torch.Tensor): Input tensor of shape (batch_size, dim)
 
         Returns:
             Dict[str, torch.Tensor]: Dictionary containing:
-                - codes: Quantization indices for each layer (batch_size, num_layers)
-                - emb: Quantized embeddings (batch_size, num_layers, latent_dim)
-                - points: Quantization points (batch_size, num_layers, latent_dim)
+                - codes: Quantization indices
+                - emb: Quantized embeddings
+                - points: Quantized points before output projection
         """
-        # Pre-transform input
         x = self.pre_transform(x)
 
-        # Process first layer separately to initialize lists
+        if self.quantizer_type == "diveq":
+            return self.diveq(x)
+
         res = self.residualfsqs[0](x, return_code=True)
-
-        # Initialize collection lists
-        codebookids: List[torch.Tensor] = [res["indices"]]
-        quantizeds: List[torch.Tensor] = [res["quantized"]]
-        points: List[torch.Tensor] = [res["points"]]
-        residual: torch.Tensor = res["residual"]
-
-        # Process remaining layers
-        for layer in self.residualfsqs[1:]:
-            res = layer(residual, return_code=True)
-            codebookids.append(res["indices"])
-            quantizeds.append(res["quantized"])
-            points.append(res["points"])
-            residual = res["residual"]
-
+        quantized = res["quantized"]
+        points = res["points"]
+        factors = self.residualfsqs[0].fsq.codes_to_factors(points).squeeze(1)
         return {
-            "codes": torch.cat(codebookids, dim=1).squeeze(-1),
-            "emb": torch.cat(quantizeds, dim=1),
-            "points": torch.cat(points, dim=1),
+            "codes": factors,
+            "emb": quantized,
+            "points": points,
+            "pre_quantized": x,
+            "quantized": quantized,
         }
 
     def embed(self, codes: torch.Tensor) -> torch.Tensor:
         """
         Convert quantization codes back to embeddings.
 
-        This method reconstructs embeddings from the quantization codes produced by the forward pass.
-        It's useful for tasks like generation or reconstruction where you start with codes
-        rather than raw inputs.
-
         Args:
-            codes (torch.Tensor): Tensor of quantization indices of shape (batch_size, num_layers)
+            codes (torch.Tensor): Factor indices of shape (batch_size, codebook_dim)
 
         Returns:
-            torch.Tensor: Reconstructed embeddings of shape (batch_size, num_layers, latent_dim)
+            torch.Tensor: Reconstructed embeddings of shape (batch_size, 1, latent_dim)
         """
-        # Split codes into individual codebook IDs along dim=1
-        cids: List[torch.Tensor] = codes.split(1, dim=1)
-        embeddings: List[torch.Tensor] = []
+        if self.quantizer_type == "diveq":
+            return self.diveq.embed(codes)
 
-        # Process each layer's codes
-        for rfsq, cid in zip(self.residualfsqs, cids):
-            # Convert indices to embeddings
-            emb = rfsq.fsq.indices_to_codes(cid.squeeze(1)).unsqueeze(1)  # Shape: [B, 1, K]
-
-            # Project and activate
-            projected = rfsq.activation(rfsq.ln2(rfsq.out_proj(emb)))  # Shape: [B, 1, K]
-            embeddings.append(projected)
-
-        # Concatenate all layer embeddings
-        return torch.hstack(embeddings)  # Shape: [B, N, K]
+        rfsq = self.residualfsqs[0]
+        points = rfsq.fsq.factors_to_codes(codes.to(torch.long)).unsqueeze(1)
+        return rfsq.activation(rfsq.ln2(rfsq.out_proj(points)))
 
     def set_levels(self, levels: List[int], device: torch.device) -> None:
         """
@@ -161,6 +170,8 @@ class DrugEncoder(torch.nn.Module):
             levels (List[int]): List of quantization levels to set
             device (torch.device): Device to place the new levels on
         """
+        if self.quantizer_type != "fsq":
+            raise RuntimeError("set_levels is only available for the FSQ quantizer")
         for rfsq in self.residualfsqs:
             rfsq.set_levels(levels, device)
 
@@ -171,4 +182,13 @@ class DrugEncoder(torch.nn.Module):
         Returns:
             List[List[int]]: List of quantization levels for each layer
         """
+        if self.quantizer_type != "fsq":
+            raise RuntimeError("get_levels is only available for the FSQ quantizer")
         return [rfsq.fsq._levels for rfsq in self.residualfsqs]
+
+    def all_code_indices(self, device: torch.device | None = None) -> torch.Tensor:
+        if self.quantizer_type == "diveq":
+            return self.diveq.all_code_indices(device=device)
+        levels = self.get_levels()[0]
+        axes = [torch.arange(int(level), device=device) for level in levels]
+        return torch.cartesian_prod(*axes)

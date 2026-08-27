@@ -5,15 +5,15 @@
 # Submit: sbatch precompute.sbatch
 #
 #SBATCH --job-name=frag_precompute
-#SBATCH --partition=singhlab
+#SBATCH --partition=scavenger-gpu
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=8
+#SBATCH --cpus-per-task=4
 #SBATCH --mem=32G
-#SBATCH --time=2:00:00
+#SBATCH --time=8:00:00
 #SBATCH --output=/hpc/group/singhlab/user/cy244/projects/peptide_evals/fragment_pool_study/precompute_%j.log
 #SBATCH --error=/hpc/group/singhlab/user/cy244/projects/peptide_evals/fragment_pool_study/precompute_%j.err
 
-set -euo pipefail
+set -eo pipefail
 
 mkdir -p /hpc/group/singhlab/user/cy244/projects/peptide_evals/fragment_pool_study
 

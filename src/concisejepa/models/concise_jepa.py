@@ -30,8 +30,9 @@ class ConciseJEPA(nn.Module):
         self.logit_scale = nn.Parameter(torch.log(torch.tensor(float(clip_logit_scale_init))))
 
         proj_dim = self.concise.r_project.out_features
+        drug_token_count = self.concise.d_encoder.num_tokens
         self.jepa_predictor = nn.Sequential(
-            nn.Linear(2 * proj_dim, jepa_hidden_dim),
+            nn.Linear((drug_token_count + 1) * proj_dim, jepa_hidden_dim),
             nn.GELU(),
             nn.Dropout(0.1),
             nn.Linear(jepa_hidden_dim, jepa_hidden_dim),
@@ -51,33 +52,9 @@ class ConciseJEPA(nn.Module):
         jepa_pred = self.jepa_predictor(context)
         drug_features = F.normalize(dti_out["d_emb"], dim=-1)
         protein_features = F.normalize(dti_out["r_emb"], dim=-1)
-        similarity_logits = self.logit_scale.exp() * (drug_features @ protein_features.T)
-        binding = (drug_features * protein_features).sum(dim=-1)
-
-        outputs = {
-            "binding": binding,
-            "codes": dti_out["codes"],
-            "jepa_pred": jepa_pred,
-            "drug_features": drug_features,
-            "protein_features": protein_features,
-            "similarity_logits": similarity_logits,
-        }
-
-        return outputs
-
-    def predict_from_codes(
-        self,
-        protein_embedding: torch.Tensor,
-        drug_codes: torch.Tensor,
-    ) -> dict[str, torch.Tensor]:
-        dti_out = self.concise(drug_codes, protein_embedding, is_morgan_fingerprint=False)
-
-        context = torch.cat([dti_out["d_emb"], dti_out["r_emb"]], dim=-1)
-        jepa_pred = self.jepa_predictor(context)
-        drug_features = F.normalize(dti_out["d_emb"], dim=-1)
-        protein_features = F.normalize(dti_out["r_emb"], dim=-1)
-        similarity_logits = self.logit_scale.exp() * (drug_features @ protein_features.T)
-        binding = (drug_features * protein_features).sum(dim=-1)
+        similarity_cosines = dti_out["pairwise_binding"]
+        similarity_logits = self.logit_scale.exp() * similarity_cosines
+        binding = dti_out["binding"]
 
         return {
             "binding": binding,
@@ -85,5 +62,37 @@ class ConciseJEPA(nn.Module):
             "jepa_pred": jepa_pred,
             "drug_features": drug_features,
             "protein_features": protein_features,
+            "similarity_cosines": similarity_cosines,
+            "similarity_logits": similarity_logits,
+            "pre_quantized": dti_out["pre_quantized"],
+            "quantized": dti_out["quantized"],
+        }
+
+    def predict_from_codes(
+        self,
+        protein_embedding: torch.Tensor,
+        drug_codes: torch.Tensor,
+    ) -> dict[str, torch.Tensor]:
+        dti_out = self.concise(
+            drug_codes,
+            protein_embedding,
+            is_morgan_fingerprint=False,
+        )
+
+        context = torch.cat([dti_out["d_emb"], dti_out["r_emb"]], dim=-1)
+        jepa_pred = self.jepa_predictor(context)
+        drug_features = F.normalize(dti_out["d_emb"], dim=-1)
+        protein_features = F.normalize(dti_out["r_emb"], dim=-1)
+        similarity_cosines = dti_out["pairwise_binding"]
+        similarity_logits = self.logit_scale.exp() * similarity_cosines
+        binding = dti_out["binding"]
+
+        return {
+            "binding": binding,
+            "codes": dti_out["codes"],
+            "jepa_pred": jepa_pred,
+            "drug_features": drug_features,
+            "protein_features": protein_features,
+            "similarity_cosines": similarity_cosines,
             "similarity_logits": similarity_logits,
         }

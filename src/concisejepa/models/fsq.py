@@ -4,6 +4,7 @@ from einops import rearrange, pack, unpack
 from typing import Type, List, Dict, Optional
 from torch.nn import Module
 from torch import Tensor, int32
+from .dynamic_tanh import DynamicTanh
 
 
 def exists(v):
@@ -136,6 +137,25 @@ class ParamfreeFSQ(Module):
 
         return codes
 
+    def codes_to_factors(self, codes: Tensor) -> Tensor:
+        """Convert normalized FSQ points to integer factor values."""
+        if codes.shape[-1] != self.codebook_dim:
+            raise ValueError(
+                f"Expected {self.codebook_dim} FSQ factors, got shape {tuple(codes.shape)}"
+            )
+        return self._scale_and_shift(codes).round().to(torch.long)
+
+    def factors_to_codes(self, factors: Tensor) -> Tensor:
+        """Convert integer factor values to normalized FSQ points."""
+        if factors.shape[-1] != self.codebook_dim:
+            raise ValueError(
+                f"Expected {self.codebook_dim} FSQ factors, got shape {tuple(factors.shape)}"
+            )
+        levels = self._levels.to(device=factors.device, dtype=torch.long)
+        if torch.any(factors < 0) or torch.any(factors >= levels):
+            raise ValueError("FSQ factors must be within their configured level ranges")
+        return self._scale_and_shift_inverse(factors)
+
     def forward(self, z: Tensor) -> Tensor:
         """
         einstein notation
@@ -179,7 +199,7 @@ class ResidualFSQ(nn.Module):
     """
 
     Architecture:
-        1. Input normalization (LayerNorm)
+        1. Input dynamic tanh
         2. Projection to quantization space (in_proj)
         3. Parameter-free quantization (FSQ)
         4. Projection back to embedding space (out_proj)
@@ -197,7 +217,7 @@ class ResidualFSQ(nn.Module):
         activation (nn.Module): Activation function instance
         in_proj (nn.Sequential): Input projection network
         out_proj (nn.Sequential): Output projection network
-        ln1 (nn.LayerNorm): Input normalization layer
+        ln1 (DynamicTanh): Input dynamic tanh layer
         ln2 (nn.LayerNorm): Output normalization layer
         scale (int): Scaling factor for hidden dimensions (2 for Tanh, 1 for others)
 
@@ -233,8 +253,8 @@ class ResidualFSQ(nn.Module):
         self.in_proj = self._build_input_projection(dim)
         self.out_proj = self._build_output_projection(dim)
 
-        # Initialize normalization layers
-        self.ln1 = nn.LayerNorm(dim)
+        # Replaces pre-FSQ tanh + input LayerNorm with one learnable dynamic tanh.
+        self.ln1 = DynamicTanh(dim, channels_last=True)
         self.ln2 = nn.LayerNorm(dim)
 
     def _build_input_projection(self, dim: int) -> nn.Sequential:
@@ -275,7 +295,7 @@ class ResidualFSQ(nn.Module):
                 - points: Raw quantization points before projection
                 - indices: (Optional) Quantization indices if return_code=True
         """
-        # Input normalization
+        # Input dynamic tanh
         x = self.ln1(x)
 
         # Project to quantization space and quantize

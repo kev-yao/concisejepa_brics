@@ -3,6 +3,8 @@ concise_backbone:
   _target_: concisejepa.models.concise.Concise
   drug_layers:
     - [32, 32, 32]
+  drug_quantizer:
+    type: fsq
   ligand_dim: 2048
   residue_dim: 1280
   drug_dim: 128

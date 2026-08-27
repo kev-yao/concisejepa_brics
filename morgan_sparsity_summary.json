@@ -1,0 +1,494 @@
+{
+  "cohorts": {
+    "peptide_binary": {
+      "active_global_bit_count": 267,
+      "dead_global_bit_fraction": 0.86962890625,
+      "density_mean": 0.040156714618206024,
+      "density_median": 0.0400390625,
+      "duplicate_fingerprint_fraction": 0.026736224323443136,
+      "fingerprint_length": 2048,
+      "nonzero_bits_max": 152,
+      "nonzero_bits_mean": 82.24095153808594,
+      "nonzero_bits_median": 82.0,
+      "nonzero_bits_min": 10,
+      "nonzero_bits_quantiles": {
+        "p10": 47.0,
+        "p25": 63.0,
+        "p75": 102.0,
+        "p90": 117.0
+      },
+      "num_fingerprints": 3067,
+      "per_bit_occupancy_mean": 0.040156714618206024,
+      "per_bit_occupancy_median": 0.0,
+      "top_occupied_bits": [
+        {
+          "bit": 1917,
+          "occupancy": 1.0
+        },
+        {
+          "bit": 807,
+          "occupancy": 1.0
+        },
+        {
+          "bit": 389,
+          "occupancy": 1.0
+        },
+        {
+          "bit": 650,
+          "occupancy": 1.0
+        },
+        {
+          "bit": 1,
+          "occupancy": 0.9947831630706787
+        },
+        {
+          "bit": 1152,
+          "occupancy": 0.993152916431427
+        },
+        {
+          "bit": 117,
+          "occupancy": 0.989240288734436
+        },
+        {
+          "bit": 80,
+          "occupancy": 0.9840234518051147
+        },
+        {
+          "bit": 1171,
+          "occupancy": 0.983371376991272
+        },
+        {
+          "bit": 573,
+          "occupancy": 0.9810889959335327
+        },
+        {
+          "bit": 736,
+          "occupancy": 0.9634822010993958
+        },
+        {
+          "bit": 2016,
+          "occupancy": 0.939354419708252
+        },
+        {
+          "bit": 1057,
+          "occupancy": 0.9390283823013306
+        },
+        {
+          "bit": 283,
+          "occupancy": 0.9312031269073486
+        },
+        {
+          "bit": 1110,
+          "occupancy": 0.9103358387947083
+        },
+        {
+          "bit": 739,
+          "occupancy": 0.8653407096862793
+        },
+        {
+          "bit": 1844,
+          "occupancy": 0.8454515933990479
+        },
+        {
+          "bit": 786,
+          "occupancy": 0.8392565846443176
+        },
+        {
+          "bit": 1618,
+          "occupancy": 0.7750244736671448
+        },
+        {
+          "bit": 1118,
+          "occupancy": 0.7541571855545044
+        }
+      ],
+      "unique_fingerprint_count": 2985,
+      "zero_fraction_mean": 0.9598432779312134
+    },
+    "peptide_count": {
+      "active_global_bit_count": 267,
+      "count_mass_max": 753.0,
+      "count_mass_mean": 299.8901062011719,
+      "count_mass_median": 262.0,
+      "count_mass_min": 11.0,
+      "dead_global_bit_fraction": 0.86962890625,
+      "density_mean": 0.040156714618206024,
+      "density_median": 0.0400390625,
+      "duplicate_fingerprint_fraction": 0.0016302575806977915,
+      "fingerprint_length": 2048,
+      "fraction_nonzero_counts_gt_1": 0.5130930542945862,
+      "max_count_value": 67.0,
+      "nonzero_bits_max": 152,
+      "nonzero_bits_mean": 82.24095153808594,
+      "nonzero_bits_median": 82.0,
+      "nonzero_bits_min": 10,
+      "nonzero_bits_quantiles": {
+        "p10": 47.0,
+        "p25": 63.0,
+        "p75": 102.0,
+        "p90": 117.0
+      },
+      "nonzero_count_value_mean": 3.646481513977051,
+      "nonzero_count_value_median": 2.0,
+      "num_fingerprints": 3067,
+      "per_bit_occupancy_mean": 0.040156714618206024,
+      "per_bit_occupancy_median": 0.0,
+      "top_occupied_bits": [
+        {
+          "bit": 1917,
+          "occupancy": 1.0
+        },
+        {
+          "bit": 807,
+          "occupancy": 1.0
+        },
+        {
+          "bit": 389,
+          "occupancy": 1.0
+        },
+        {
+          "bit": 650,
+          "occupancy": 1.0
+        },
+        {
+          "bit": 1,
+          "occupancy": 0.9947831630706787
+        },
+        {
+          "bit": 1152,
+          "occupancy": 0.993152916431427
+        },
+        {
+          "bit": 117,
+          "occupancy": 0.989240288734436
+        },
+        {
+          "bit": 80,
+          "occupancy": 0.9840234518051147
+        },
+        {
+          "bit": 1171,
+          "occupancy": 0.983371376991272
+        },
+        {
+          "bit": 573,
+          "occupancy": 0.9810889959335327
+        },
+        {
+          "bit": 736,
+          "occupancy": 0.9634822010993958
+        },
+        {
+          "bit": 2016,
+          "occupancy": 0.939354419708252
+        },
+        {
+          "bit": 1057,
+          "occupancy": 0.9390283823013306
+        },
+        {
+          "bit": 283,
+          "occupancy": 0.9312031269073486
+        },
+        {
+          "bit": 1110,
+          "occupancy": 0.9103358387947083
+        },
+        {
+          "bit": 739,
+          "occupancy": 0.8653407096862793
+        },
+        {
+          "bit": 1844,
+          "occupancy": 0.8454515933990479
+        },
+        {
+          "bit": 786,
+          "occupancy": 0.8392565846443176
+        },
+        {
+          "bit": 1618,
+          "occupancy": 0.7750244736671448
+        },
+        {
+          "bit": 1118,
+          "occupancy": 0.7541571855545044
+        }
+      ],
+      "unique_fingerprint_count": 3062,
+      "zero_fraction_mean": 0.9598432779312134
+    },
+    "small_molecule_binary": {
+      "active_global_bit_count": 2048,
+      "dead_global_bit_fraction": 0.0,
+      "density_mean": 0.028424501419067383,
+      "density_median": 0.02685546875,
+      "duplicate_fingerprint_fraction": 0.06144393241167434,
+      "fingerprint_length": 2048,
+      "nonzero_bits_max": 183,
+      "nonzero_bits_mean": 58.21337890625,
+      "nonzero_bits_median": 55.0,
+      "nonzero_bits_min": 9,
+      "nonzero_bits_quantiles": {
+        "p10": 34.0,
+        "p25": 43.0,
+        "p75": 67.0,
+        "p90": 84.0
+      },
+      "num_fingerprints": 7161,
+      "per_bit_occupancy_mean": 0.028424499556422234,
+      "per_bit_occupancy_median": 0.011031978763639927,
+      "top_occupied_bits": [
+        {
+          "bit": 1380,
+          "occupancy": 0.965786874294281
+        },
+        {
+          "bit": 1873,
+          "occupancy": 0.9442815184593201
+        },
+        {
+          "bit": 1750,
+          "occupancy": 0.8624494075775146
+        },
+        {
+          "bit": 807,
+          "occupancy": 0.8198575377464294
+        },
+        {
+          "bit": 650,
+          "occupancy": 0.790113091468811
+        },
+        {
+          "bit": 80,
+          "occupancy": 0.7585532665252686
+        },
+        {
+          "bit": 1057,
+          "occupancy": 0.7254573106765747
+        },
+        {
+          "bit": 1917,
+          "occupancy": 0.6430665850639343
+        },
+        {
+          "bit": 1152,
+          "occupancy": 0.5772936940193176
+        },
+        {
+          "bit": 1088,
+          "occupancy": 0.5743611454963684
+        },
+        {
+          "bit": 926,
+          "occupancy": 0.5626308917999268
+        },
+        {
+          "bit": 875,
+          "occupancy": 0.5570451021194458
+        },
+        {
+          "bit": 378,
+          "occupancy": 0.5483871102333069
+        },
+        {
+          "bit": 935,
+          "occupancy": 0.5299538969993591
+        },
+        {
+          "bit": 1019,
+          "occupancy": 0.45622119307518005
+        },
+        {
+          "bit": 695,
+          "occupancy": 0.44854071736335754
+        },
+        {
+          "bit": 1199,
+          "occupancy": 0.3722943663597107
+        },
+        {
+          "bit": 389,
+          "occupancy": 0.36545175313949585
+        },
+        {
+          "bit": 1452,
+          "occupancy": 0.3236978054046631
+        },
+        {
+          "bit": 1855,
+          "occupancy": 0.305124968290329
+        }
+      ],
+      "unique_fingerprint_count": 6721,
+      "zero_fraction_mean": 0.9715754985809326
+    },
+    "small_molecule_count": {
+      "active_global_bit_count": 2048,
+      "count_mass_max": 1005.0,
+      "count_mass_mean": 108.73606872558594,
+      "count_mass_median": 91.0,
+      "count_mass_min": 15.0,
+      "dead_global_bit_fraction": 0.0,
+      "density_mean": 0.028424501419067383,
+      "density_median": 0.02685546875,
+      "duplicate_fingerprint_fraction": 0.04664153051249831,
+      "fingerprint_length": 2048,
+      "fraction_nonzero_counts_gt_1": 0.3015165627002716,
+      "max_count_value": 72.0,
+      "nonzero_bits_max": 183,
+      "nonzero_bits_mean": 58.21337890625,
+      "nonzero_bits_median": 55.0,
+      "nonzero_bits_min": 9,
+      "nonzero_bits_quantiles": {
+        "p10": 34.0,
+        "p25": 43.0,
+        "p75": 67.0,
+        "p90": 84.0
+      },
+      "nonzero_count_value_mean": 1.8678879737854004,
+      "nonzero_count_value_median": 1.0,
+      "num_fingerprints": 7161,
+      "per_bit_occupancy_mean": 0.028424499556422234,
+      "per_bit_occupancy_median": 0.011031978763639927,
+      "top_occupied_bits": [
+        {
+          "bit": 1380,
+          "occupancy": 0.965786874294281
+        },
+        {
+          "bit": 1873,
+          "occupancy": 0.9442815184593201
+        },
+        {
+          "bit": 1750,
+          "occupancy": 0.8624494075775146
+        },
+        {
+          "bit": 807,
+          "occupancy": 0.8198575377464294
+        },
+        {
+          "bit": 650,
+          "occupancy": 0.790113091468811
+        },
+        {
+          "bit": 80,
+          "occupancy": 0.7585532665252686
+        },
+        {
+          "bit": 1057,
+          "occupancy": 0.7254573106765747
+        },
+        {
+          "bit": 1917,
+          "occupancy": 0.6430665850639343
+        },
+        {
+          "bit": 1152,
+          "occupancy": 0.5772936940193176
+        },
+        {
+          "bit": 1088,
+          "occupancy": 0.5743611454963684
+        },
+        {
+          "bit": 926,
+          "occupancy": 0.5626308917999268
+        },
+        {
+          "bit": 875,
+          "occupancy": 0.5570451021194458
+        },
+        {
+          "bit": 378,
+          "occupancy": 0.5483871102333069
+        },
+        {
+          "bit": 935,
+          "occupancy": 0.5299538969993591
+        },
+        {
+          "bit": 1019,
+          "occupancy": 0.45622119307518005
+        },
+        {
+          "bit": 695,
+          "occupancy": 0.44854071736335754
+        },
+        {
+          "bit": 1199,
+          "occupancy": 0.3722943663597107
+        },
+        {
+          "bit": 389,
+          "occupancy": 0.36545175313949585
+        },
+        {
+          "bit": 1452,
+          "occupancy": 0.3236978054046631
+        },
+        {
+          "bit": 1855,
+          "occupancy": 0.305124968290329
+        }
+      ],
+      "unique_fingerprint_count": 6827,
+      "zero_fraction_mean": 0.9715754985809326
+    }
+  },
+  "comparisons": {
+    "binary": {
+      "active_bit_jaccard": 0.13037109375,
+      "active_global_bit_difference_peptide_minus_small": -1781.0,
+      "mean_nonzero_bits_difference_peptide_minus_small": 24.027572631835938,
+      "peptide_to_small_density_ratio": 1.412750008387784,
+      "shared_active_bit_count": 267.0
+    },
+    "count": {
+      "active_bit_jaccard": 0.13037109375,
+      "active_global_bit_difference_peptide_minus_small": -1781.0,
+      "mean_nonzero_bits_difference_peptide_minus_small": 24.027572631835938,
+      "peptide_to_small_density_ratio": 1.412750008387784,
+      "shared_active_bit_count": 267.0
+    }
+  },
+  "diagnostics": {
+    "count_unassigned_embedding_keys": 0,
+    "peptide_binary": {
+      "csv_smiles": 3067,
+      "matched_smiles": 3067,
+      "missing_from_embeddings": 0
+    },
+    "peptide_count": {
+      "csv_smiles": 3067,
+      "matched_smiles": 3067,
+      "missing_from_embeddings": 0
+    },
+    "small_binary": {
+      "csv_smiles": 7165,
+      "matched_smiles": 7161,
+      "missing_from_embeddings": 4
+    },
+    "small_count": {
+      "csv_smiles": 7165,
+      "matched_smiles": 7161,
+      "missing_from_embeddings": 4
+    }
+  },
+  "inputs": {
+    "count_combined": "/hpc/group/singhlab/user/cy244/projects/peptides/count_combined_embeddings/morgan_embeddings.pt",
+    "peptide_binary": "/hpc/group/singhlab/user/cy244/projects/peptides/peptide_embeddings/morgan_embeddings.pt",
+    "peptide_csvs": [
+      "/hpc/group/singhlab/user/cy244/projects/peptides/peptide_embeddings/train.csv",
+      "/hpc/group/singhlab/user/cy244/projects/peptides/peptide_embeddings/val.csv",
+      "/hpc/group/singhlab/user/cy244/projects/peptides/peptide_embeddings/test.csv"
+    ],
+    "small_binary": "/hpc/group/singhlab/user/cy244/projects/peptides/BindingDB_embeddings/morgan_embeddings.pt",
+    "small_csvs": [
+      "/hpc/group/singhlab/user/cy244/projects/peptides/BindingDB_embeddings/train.csv",
+      "/hpc/group/singhlab/user/cy244/projects/peptides/BindingDB_embeddings/val.csv",
+      "/hpc/group/singhlab/user/cy244/projects/peptides/BindingDB_embeddings/test.csv"
+    ]
+  }
+}

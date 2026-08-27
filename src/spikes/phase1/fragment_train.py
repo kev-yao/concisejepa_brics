@@ -1,11 +1,27 @@
 #!/usr/bin/env python3
-# phase1_fragment_train.py — Training entry point for fragment-level FSQ pooling ablation.
-#
-# Usage (env-var driven; set in sbatch script):
-#   POOLING_STRATEGY=mean python fragment_train.py
-#
-# Or direct:
-#   python fragment_train.py --pooling mean --output_dir /path/to/runs/mean
+"""fragment_train.py — training entry point for the fragment pipeline (ConciseFragment /
+ConciseJEPAFragment / ConciseJEPAFragmentXAttn).
+
+Config is CLI-args-and-env-vars driven (env vars, if set, override DEFAULTS below; CLI flags
+override both — see build_cfg()). Every sbatch script in this project sets the data-path env
+vars explicitly, so DEFAULTS below is really just a fallback for ad-hoc/interactive runs.
+
+Usage (env-var driven; typically set in an sbatch script):
+    POOLING_STRATEGY=mean python fragment_train.py
+
+Or direct, with explicit flags:
+    python fragment_train.py --pooling max --fsq_levels 32,32,32 --predictor_type mlp \
+        --output_dir /path/to/runs/max
+
+Key flags (see docs/PROJECT_HANDOFF.md §4 for the full table): --pooling
+{weighted_sum,f2r,max,whole_mol,...}, --fsq_levels (comma-separated FSQ factors — "32,32,32"
+hierarchical vs. "32768"/"1500" flat), --jepa_loss_type {mse,contrastive}, --predictor_type
+{mlp,xattn}, --chem_supervision_weight / --group_supervision_weight (auxiliary losses, see
+lit_fragment.py).
+
+Writes: run_dir/checkpoints/final.ckpt (the true-final-epoch checkpoint — see the comment above
+final_ckpt_cb below for why this exists as a separate callback) + run_dir/summary.json.
+"""
 
 import argparse
 import json
@@ -25,9 +41,8 @@ _HERE = Path(__file__).resolve().parent
 _SRC = _HERE.parent.parent.parent  # src/
 sys.path.insert(0, str(_SRC))
 
-from concisejepa.models.drug_decoder import DrugEncoder
-
 from .fragment_encoder import ConciseFragment, ConciseJEPAFragment
+from .fragment_xattn import ConciseJEPAFragmentXAttn
 from .fragment_datamodule import FragmentDataModule
 from .lit_fragment import LitFragment
 
@@ -37,7 +52,8 @@ from .lit_fragment import LitFragment
 
 DEFAULTS = dict(
     pooling="mean",
-    drug_layers=[[32, 32, 32]],
+    fsq_levels="32,32,32",   # comma-separated FSQ factor levels, e.g. "32,32,32" (hierarchical,
+                              # 3 factors, 32768 codes) or "32768" (flat, 1 factor, same capacity)
     ligand_dim=2048,
     residue_dim=1280,
     drug_dim=128,
@@ -48,6 +64,16 @@ DEFAULTS = dict(
     jepa_hidden_dim=512,
     lr=1e-4,
     weight_decay=1e-2,
+    chem_supervision_weight=0.0,   # >0 enables auxiliary chem-property supervision (see LitFragment)
+    group_supervision_weight=0.0,  # >0 enables auxiliary functional-group supervision (see LitFragment)
+    jepa_loss_type="mse",           # "mse" (default) or "contrastive" (see LitFragment)
+    predictor_type="mlp",           # "mlp" (default, ConciseJEPAFragment) or "xattn"
+                                     # (ConciseJEPAFragmentXAttn — cross-attention over
+                                     # unpooled fragment tokens, see fragment_xattn.py)
+    predictor_dim=256,               # xattn predictor only
+    predictor_depth=3,                # xattn predictor only
+    predictor_heads=8,                 # xattn predictor only
+    predictor_mlp_ratio=2.0,            # xattn predictor only
     max_epochs=30,
     batch_size=256,
     num_workers=0,
@@ -62,6 +88,13 @@ DEFAULTS = dict(
     smiles_embeddings_path="/hpc/group/singhlab/user/cy244/projects/peptides/count_combined_embeddings/coati_embeddings.pt",
     output_dir="/hpc/group/singhlab/user/cy244/projects/peptide_evals/fragment_pool_study",
 )
+# NOTE: the *_path/*_csv defaults above point at an OLDER, now-stale data directory
+# (count_combined_embeddings/, missing train/val/test.csv and raygun_embeddings.pt as of this
+# writing). Every real training run in this project overrode these via env vars pointing at the
+# current canonical directory instead: /hpc/group/singhlab/user/cy244/projects/peptides/
+# BindingDB_embeddings/ (see docs/PROJECT_HANDOFF.md §3). Left as-is here rather than silently
+# changed, since these are only fallbacks — but don't run this script bare without overriding
+# them, or you'll train against the wrong (smaller, older) dataset.
 
 
 def _env_override(d: dict) -> dict:
@@ -104,8 +137,9 @@ def build_cfg(args):
 
 
 def build_model(cfg) -> ConciseJEPAFragment:
+    fsq_levels = [int(x) for x in str(cfg.fsq_levels).split(",")]
     backbone = ConciseFragment(
-        drug_layers=cfg.drug_layers,
+        drug_layers=[fsq_levels],
         pooling=cfg.pooling,
         ligand_dim=cfg.ligand_dim,
         residue_dim=cfg.residue_dim,
@@ -115,6 +149,17 @@ def build_model(cfg) -> ConciseJEPAFragment:
         activation=cfg.activation,
         drug_quantizer={"type": "fsq"},
     )
+    if cfg.predictor_type == "xattn":
+        return ConciseJEPAFragmentXAttn(
+            concise_fragment=backbone,
+            smiles_target_dim=cfg.smiles_target_dim,
+            predictor_dim=cfg.predictor_dim,
+            predictor_depth=cfg.predictor_depth,
+            predictor_heads=cfg.predictor_heads,
+            predictor_mlp_ratio=cfg.predictor_mlp_ratio,
+        )
+    if cfg.predictor_type != "mlp":
+        raise ValueError(f"Unknown predictor_type: {cfg.predictor_type!r}")
     return ConciseJEPAFragment(
         concise_fragment=backbone,
         smiles_target_dim=cfg.smiles_target_dim,
@@ -137,7 +182,12 @@ def main():
     print(f"Run dir: {run_dir}")
 
     model = build_model(cfg)
-    lit = LitFragment(model, lr=cfg.lr, weight_decay=cfg.weight_decay)
+    lit = LitFragment(
+        model, lr=cfg.lr, weight_decay=cfg.weight_decay,
+        chem_supervision_weight=cfg.chem_supervision_weight,
+        group_supervision_weight=cfg.group_supervision_weight,
+        jepa_loss_type=cfg.jepa_loss_type,
+    )
 
     data_cfg = SimpleNamespace(
         train_csv=cfg.train_csv,
@@ -151,24 +201,45 @@ def main():
         num_workers=cfg.num_workers,
         pin_memory=False,
         persistent_workers=False,
+        use_whole_mol=(cfg.pooling == "whole_mol"),
     )
     dm = FragmentDataModule(data_cfg)
 
     ckpt_dir = run_dir / "checkpoints"
     ckpt_dir.mkdir(exist_ok=True)
+    # Best-by-AUPRC checkpoint, kept for reference only (not used for eval/downstream by
+    # default anymore). auto_insert_metric_name=False avoids a real bug: Lightning's default
+    # filename formatting prepends the raw metric NAME before its value, and since the metric
+    # key itself is "val/dti_auprc" (contains a literal "/"), that slash landed in the
+    # filename and silently created a spurious "epoch=NN-val/" subdirectory. This also
+    # appears to have broken save_last's independence from the monitor (last.ckpt ended up
+    # frozen at whatever epoch AUPRC last improved, never updating past that point) — rather
+    # than rely on save_last at all, final-epoch weights are now guaranteed by a fully
+    # separate, monitor-free callback below.
     checkpoint_cb = ModelCheckpoint(
         dirpath=str(ckpt_dir),
-        filename="{epoch:02d}-{val/dti_auprc:.4f}",
+        filename="epoch={epoch:02d}-auprc={val/dti_auprc:.4f}",
+        auto_insert_metric_name=False,
         monitor="val/dti_auprc",
         mode="max",
         save_top_k=1,
-        save_last=True,
+        save_last=False,
+    )
+    # Guaranteed true-final-epoch checkpoint, independent of any monitored metric. With
+    # monitor=None every epoch is treated as "the one to keep" (save_top_k=1 just overwrites),
+    # so whatever remains when training finishes is exactly the last epoch's weights — this is
+    # now the canonical checkpoint used for testing and all downstream evaluation.
+    final_ckpt_cb = ModelCheckpoint(
+        dirpath=str(ckpt_dir),
+        filename="final",
+        monitor=None,
+        save_top_k=1,
     )
     logger = CSVLogger(save_dir=str(run_dir), name="logs")
 
     trainer = pl.Trainer(
         logger=logger,
-        callbacks=[checkpoint_cb, TQDMProgressBar()],
+        callbacks=[checkpoint_cb, final_ckpt_cb, TQDMProgressBar()],
         max_epochs=cfg.max_epochs,
         accelerator="auto",
         devices=1,
@@ -179,15 +250,17 @@ def main():
 
     trainer.fit(lit, datamodule=dm)
 
-    best_ckpt = checkpoint_cb.best_model_path or checkpoint_cb.last_model_path
-    trainer.test(lit, datamodule=dm, ckpt_path=best_ckpt or None)
+    best_ckpt = checkpoint_cb.best_model_path
+    final_ckpt = final_ckpt_cb.best_model_path
+    trainer.test(lit, datamodule=dm, ckpt_path=final_ckpt or None)
 
     # Write summary JSON for easy collection
     summary = {
         "pooling": cfg.pooling,
         "run_name": run_name,
         "run_dir": str(run_dir),
-        "best_checkpoint": best_ckpt,
+        "final_checkpoint": final_ckpt,
+        "best_auprc_checkpoint": best_ckpt,
     }
     for key, val in trainer.callback_metrics.items():
         if isinstance(val, torch.Tensor):

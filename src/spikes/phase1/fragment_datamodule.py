@@ -1,24 +1,39 @@
-# phase1_fragment_datamodule.py — Fragment FP precompute + collator + data module.
-#
-# Precompute: for each unique SMILES in the dataset, BRICS-decompose → Morgan FP per
-# fragment.  Outputs fragment_fps_r4_2048.pt: dict[smiles → Tensor[n_frags, 2048]].
-#
-# FragmentCollator: loads the fragment FP cache; pads variable-length fragment lists to
-# max_frags-in-batch; produces fragment_mask (True = valid).
+"""fragment_datamodule.py — BRICS fragmentation, fragment-fingerprint precompute, and the
+PyTorch Lightning DataModule that feeds fragment_train.py.
+
+Three pieces:
+  1. BRICS fragmentation + precompute (brics_fragment_mols, compute_fragment_fps,
+     build_fragment_fp_cache) — for each unique SMILES, BRICS-decompose it and compute a Morgan
+     fingerprint per fragment. Run once, offline; output is fragment_fps_r4_2048.pt
+     (dict[smiles -> Tensor[n_frags, 2048]]), the canonical fragment-fingerprint cache every
+     downstream script loads. Includes a timeout + defensive fallback for a real RDKit bug
+     (BRICS.BRICSDecompose can raise a bare AttributeError on certain structures) — see
+     docs/PROJECT_HANDOFF.md §7.
+  2. FragmentCollator — the batch collate function: looks up each molecule's precomputed
+     fragment fingerprints, pads variable fragment counts to the batch max, and produces the
+     boolean frag_mask that every downstream model/eval script expects.
+  3. FragmentDataModule — the Lightning DataModule wrapping both, used by fragment_train.py.
+
+Re-running BRICS fragmentation outside this precompute (e.g. to recover a molecule's own
+fragment SMILES, not just its fingerprint) should reuse brics_fragment_mols directly rather than
+reimplementing it — see how scripts/test_fragment_screening.py does this, including the
+defensive skip for the known RDKit bug.
+"""
 
 import re
 import json
+import signal
 from pathlib import Path
 from typing import Dict, Sequence
 
 import numpy as np
-import pandas as pd
 import pytorch_lightning as pl
 import torch
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 MAX_FRAGS = 16  # cap per molecule; keep largest fragments (by heavy-atom count)
+BRICS_TIMEOUT_SEC = 3  # fallback to whole-mol FP if BRICS takes longer than this
 
 
 # ---------------------------------------------------------------------------
@@ -30,14 +45,21 @@ def _sanitize_brics_mol(brics_smiles: str):
     from rdkit import Chem
     mol = Chem.MolFromSmiles(brics_smiles)
     if mol is None:
-        # Try stripping numeric attachment labels, keeping bare [*]
         cleaned = re.sub(r'\[(\d+)\*\]', '[*]', brics_smiles)
         mol = Chem.MolFromSmiles(cleaned)
     return mol
 
 
+class _BRICSTimeout(Exception):
+    pass
+
+
 def brics_fragment_mols(smiles: str):
-    """BRICS decompose a SMILES string. Returns list of RDKit Mol objects, largest first."""
+    """BRICS decompose a SMILES string. Returns list of RDKit Mol objects, largest first.
+
+    Falls back to whole-molecule on BRICS timeout (some molecules have exponential
+    BRICS complexity — without a timeout the precompute can stall for hours).
+    """
     from rdkit import Chem
     from rdkit.Chem import BRICS
 
@@ -45,7 +67,18 @@ def brics_fragment_mols(smiles: str):
     if mol is None:
         return []
 
-    frag_smiles_set = BRICS.BRICSDecompose(mol)
+    def _alarm(signum, frame):
+        raise _BRICSTimeout()
+
+    signal.signal(signal.SIGALRM, _alarm)
+    signal.alarm(BRICS_TIMEOUT_SEC)
+    try:
+        frag_smiles_set = BRICS.BRICSDecompose(mol)
+        signal.alarm(0)
+    except _BRICSTimeout:
+        signal.alarm(0)
+        return [mol]  # fallback: whole molecule
+
     if not frag_smiles_set:
         return [mol]  # fallback: whole molecule
 
@@ -144,11 +177,13 @@ class FragmentCollator:
         fragment_fps: Dict[str, torch.Tensor],
         smiles_embeddings: Dict[str, torch.Tensor],
         fallback_morgan: Dict[str, torch.Tensor] | None = None,
+        use_whole_mol: bool = False,
     ) -> None:
         self.protein_embeddings = protein_embeddings
         self.fragment_fps = fragment_fps
         self.smiles_embeddings = smiles_embeddings
         self.fallback_morgan = fallback_morgan  # whole-mol FP if fragment lookup fails
+        self.use_whole_mol = use_whole_mol  # baseline: bypass fragments, use whole-mol FP
 
     def __call__(self, batch: Sequence[tuple[str, str, float]]):
         sequences, smiles_list, labels = zip(*batch)
@@ -159,14 +194,20 @@ class FragmentCollator:
         label = torch.tensor(labels, dtype=torch.float32)
 
         # Look up fragment FPs; fall back to whole-mol FP if missing
+        fp_dim = next(iter(self.fragment_fps.values())).shape[-1]
         frag_list: list[torch.Tensor] = []
         for smi in smiles_list:
-            if smi in self.fragment_fps:
+            if self.use_whole_mol:
+                # Whole-mol baseline: ignore fragments, use morgan FP as single token
+                if self.fallback_morgan and smi in self.fallback_morgan:
+                    frag_list.append(self.fallback_morgan[smi].unsqueeze(0))  # [1, 2048]
+                else:
+                    frag_list.append(torch.zeros(1, fp_dim))
+            elif smi in self.fragment_fps:
                 frag_list.append(self.fragment_fps[smi])
             elif self.fallback_morgan and smi in self.fallback_morgan:
                 frag_list.append(self.fallback_morgan[smi].unsqueeze(0))  # [1, 2048]
             else:
-                fp_dim = next(iter(self.fragment_fps.values())).shape[-1]
                 frag_list.append(torch.zeros(1, fp_dim))
 
         # Pad to max_frags in batch
@@ -215,6 +256,7 @@ class FragmentDataModule(pl.LightningDataModule):
         self.smiles_embeddings_path = Path(cfg.smiles_embeddings_path)
         morgan_path = getattr(cfg, "morgan_embeddings_path", None)
         self.morgan_embeddings_path = Path(morgan_path) if morgan_path else None
+        self.use_whole_mol = getattr(cfg, "use_whole_mol", False)
 
         self._load_embeddings()
 
@@ -232,7 +274,12 @@ class FragmentDataModule(pl.LightningDataModule):
         if self.morgan_embeddings_path and self.morgan_embeddings_path.exists():
             self.morgan_embeddings = torch.load(self.morgan_embeddings_path, map_location="cpu")
 
-        self.valid_smiles = set(self.fragment_fps.keys()) & set(self.smiles_embeddings.keys())
+        if self.use_whole_mol:
+            # Whole-mol baseline: valid set is intersection of morgan + smiles embeddings
+            morgan_keys = set(self.morgan_embeddings.keys()) if self.morgan_embeddings else set()
+            self.valid_smiles = morgan_keys & set(self.smiles_embeddings.keys())
+        else:
+            self.valid_smiles = set(self.fragment_fps.keys()) & set(self.smiles_embeddings.keys())
         self.valid_sequences = set(self.protein_embeddings.keys())
         print(f"Valid SMILES: {len(self.valid_smiles)}, Valid sequences: {len(self.valid_sequences)}")
 
@@ -242,6 +289,7 @@ class FragmentDataModule(pl.LightningDataModule):
             fragment_fps=self.fragment_fps,
             smiles_embeddings=self.smiles_embeddings,
             fallback_morgan=self.morgan_embeddings,
+            use_whole_mol=self.use_whole_mol,
         )
 
     def _make_dataset(self, csv_path: str):
