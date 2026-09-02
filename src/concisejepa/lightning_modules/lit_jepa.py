@@ -12,6 +12,7 @@ from rdkit.Chem import AllChem, RDKFingerprint
 from rdkit.DataStructs.cDataStructs import BulkTanimotoSimilarity
 from torchmetrics.classification import BinaryAUROC, BinaryAveragePrecision
 
+from concisejepa.datamodules.dataloader import _validate_fingerprint_model_dimensions
 from concisejepa.models.chem_property_head import ChemPropertyHead, compute_property_bins
 from concisejepa.models.functional_group_head import FunctionalGroupHead, compute_functional_group_bits
 
@@ -44,10 +45,26 @@ def product_quantizer_usage_metrics(
 class LitConciseJEPA(pl.LightningModule):
     def __init__(
         self,
-        config: DictConfig,
+        config: DictConfig | None = None,
+        model: nn.Module | None = None,
+        experiment_config: DictConfig | None = None,
     ) -> None:
         super().__init__()
-        self.model = instantiate(config.model)
+        if config is not None and experiment_config is not None:
+            raise ValueError("Pass either config or experiment_config, not both.")
+        config = experiment_config if experiment_config is not None else config
+        if config is None:
+            raise ValueError("LitConciseJEPA requires an experiment config.")
+        # The generic experiment runner injects the configured model. Retain
+        # the fallback for older tests and checkpoints that construct this
+        # Lightning module directly from the monolithic config.
+        self.model = model if model is not None else instantiate(config.model)
+        data_cfg = getattr(config, "data", getattr(config, "datamodule", None))
+        if data_cfg is not None:
+            _validate_fingerprint_model_dimensions(
+                int(getattr(data_cfg, "fingerprint_length", 2048)),
+                int(config.model.concise_backbone.ligand_dim),
+            )
         self.lr = config.lr
         self.weight_decay = config.weight_decay
 

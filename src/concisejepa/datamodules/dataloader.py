@@ -1,6 +1,7 @@
 import json
 import re
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Dict, Sequence
 
 import pandas as pd
@@ -371,9 +372,14 @@ class BindingDBDictDataModule(pl.LightningDataModule):
 
     def __init__(
         self,
-        cfg,
+        cfg=None,
+        **kwargs,
     ) -> None:
         super().__init__()
+        if cfg is not None and kwargs:
+            raise ValueError("Pass either a config object or keyword arguments, not both.")
+        if cfg is None:
+            cfg = SimpleNamespace(**kwargs)
         self.train_csv = cfg.train_csv
         self.val_csv = cfg.val_csv
         self.test_csv = cfg.test_csv

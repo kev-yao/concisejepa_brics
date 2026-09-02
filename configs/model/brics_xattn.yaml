@@ -1,0 +1,23 @@
+_target_: concisejepa.models.fragment.ConciseJEPAFragmentXAttn
+concise_fragment:
+  _target_: concisejepa.models.fragment.ConciseFragment
+  drug_layers:
+    - [32, 32, 32]
+  pooling: mean
+  ligand_dim: 2048
+  residue_dim: 1280
+  drug_dim: 128
+  proj_dim: 256
+  nheads: 32
+  activation: tanh
+  pairwise_attention_chunk_size: 4096
+  use_pairwise_attention_checkpoint: true
+  drug_quantizer:
+    type: fsq
+smiles_target_dim: 256
+predictor_dim: 256
+predictor_depth: 3
+predictor_heads: 8
+predictor_mlp_ratio: 2.0
+predictor_dropout: 0.1
+clip_logit_scale_init: 14.0

@@ -1,15 +1,32 @@
+defaults:
+  - model: wholemol_fsq
+  - data: bindingdb
+  - task: dti_jepa
+  - callbacks: wholemol_fsq
+  - trainer: default
+  - logger: csv
+  - _self_
+  - experiment: null
+
 seed: 42
 lr: 1.0e-4
 weight_decay: 1.0e-2
+
+run:
+  name_prefix: concisejepa
+  output_root: ${oc.env:CONCISEJEPA_RUN_ROOT,outputs}
+
+# Populated by main.py before interpolated components are instantiated.
+runtime:
+  run_id: null
+  run_name: null
+  run_dir: null
+  checkpoint_dir: null
 
 negative_diagonal_loss:
   enabled: true
   weight: 1.0
   margin: 0.0
-
-logging:
-  save_dir: .
-  run_name_prefix: concisejepa
 
 forward_capture:
   enabled: true
@@ -17,22 +34,6 @@ forward_capture:
   batch_idx: 0
   filename: train_forward_logits_last.json
   output_path: ""
-
-checkpoint:
-  dir: checkpoints
-  filename: "{epoch:02d}-{val_dti_auprc:.4f}"
-  monitor: val/dti_auprc
-  mode: max
-  save_top_k: 1
-  save_last: true
-
-trainer:
-  max_epochs: 100
-  accelerator: auto
-  devices: 1
-  precision: 32
-  log_every_n_steps: 20
-  enable_progress_bar: true
 
 coati_validation:
   enabled: true
@@ -45,7 +46,7 @@ coati_validation:
 chem_supervision:
   enabled: true
   weight: 0.1
-  post_fsq: true  # if true, supervise quantized (post-FSQ); if false, supervise pre_quantized
+  post_fsq: true
 
 group_supervision:
   enabled: true
@@ -65,41 +66,6 @@ synthetic_validation:
   point_alpha: 0.9
   max_decode: 1000
 
-model:
-  _target_: concisejepa.models.concise_jepa.ConciseJEPA
-  concise_backbone:
-    _target_: concisejepa.models.concise.Concise
-    drug_layers:
-      - [32, 32, 32]
-    drug_quantizer:
-      type: fsq
-    ligand_dim: 2048
-    residue_dim: 1280
-    drug_dim: 128
-    proj_dim: 256
-    nheads: 32
-    activation: tanh
-    cosine_prediction: false
-  smiles_target_dim: 256
-  jepa_hidden_dim: 512
-
-datamodule:
-  _target_: concisejepa.datamodules.BindingDBDictDataModule
-  train_csv: /hpc/group/singhlab/user/me196/projects/moleculerep/runs/REVICE/data/bindingdb/train.csv
-  val_csv: /hpc/group/singhlab/user/me196/projects/moleculerep/runs/REVICE/data/bindingdb/val.csv
-  test_csv: /hpc/group/singhlab/user/me196/projects/moleculerep/runs/REVICE/data/bindingdb/test.csv
-  # Save generated embeddings to this shared path.
-  protein_embeddings_path: /hpc/group/singhlab/user/cy244/projects/peptides/raygun_embeddings.pt
-  morgan_embeddings_path: /hpc/group/singhlab/user/cy244/projects/peptides/count_combined_embeddings/morgan_embeddings.pt
-  smiles_embeddings_path: /hpc/group/singhlab/user/cy244/projects/peptides/coati_embeddings.pt
-  fingerprint_kind: ecfp-count:4
-  fingerprint_length: 2048
-  embedding_device: cuda:0
-  coati_doc_url: s3://terray-public/models/grande_closed.pkl
-  sequence_col: Target Sequence
-  smiles_col: SMILES
-  label_col: Label
-  batch_size: 1028
-  num_workers: 4
-  pin_memory: true
-  persistent_workers: true
+hydra:
+  job:
+    chdir: false

@@ -1,0 +1,16 @@
+# @package _global_
+defaults:
+  - override /model: brics_xattn
+  - override /data: brics_bindingdb
+  - override /task: brics_jepa
+  - override /callbacks: brics_fsq
+  - override /trainer: fragment_default
+
+run:
+  name_prefix: brics-xattn
+
+chem_supervision:
+  enabled: false
+
+group_supervision:
+  enabled: false

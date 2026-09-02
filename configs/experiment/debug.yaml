@@ -1,0 +1,12 @@
+# @package _global_
+defaults:
+  - override /model: wholemol_fsq
+  - override /data: bindingdb
+  - override /task: dti_jepa
+  - override /callbacks: wholemol_fsq
+  - override /trainer: debug
+
+run:
+  name_prefix: debug
+coati_validation:
+  enabled: false

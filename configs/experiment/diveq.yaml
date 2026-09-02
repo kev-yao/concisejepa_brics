@@ -1,0 +1,10 @@
+# @package _global_
+defaults:
+  - override /model: wholemol_diveq
+  - override /data: bindingdb
+  - override /task: dti_jepa
+  - override /callbacks: wholemol
+  - override /trainer: default
+
+run:
+  name_prefix: diveq

@@ -1,0 +1,31 @@
+best_checkpoint:
+  _target_: pytorch_lightning.callbacks.ModelCheckpoint
+  enabled: true
+  dirpath: ${runtime.checkpoint_dir}
+  filename: "{epoch:02d}-{val_dti_auprc:.4f}"
+  auto_insert_metric_name: false
+  monitor: val/dti_auprc
+  mode: max
+  save_top_k: 1
+  save_last: false
+
+final_checkpoint:
+  _target_: pytorch_lightning.callbacks.ModelCheckpoint
+  enabled: true
+  dirpath: ${runtime.checkpoint_dir}
+  filename: final
+  monitor: null
+  save_top_k: 1
+
+progress_bar:
+  _target_: pytorch_lightning.callbacks.TQDMProgressBar
+  enabled: true
+
+epoch_metrics:
+  _target_: concisejepa.callbacks.EpochMetricsWriter
+  enabled: true
+  output_dir: ${runtime.run_dir}
+
+chem_codebook:
+  _target_: concisejepa.evals.chem_codebook_eval.ChemCodebookEvalCallback
+  enabled: true

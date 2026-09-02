@@ -1,0 +1,26 @@
+_target_: concisejepa.datamodules.BindingDBDictDataModule
+
+# Override these roots per collaborator instead of editing a shared config:
+#   export CONCISEJEPA_CSV_ROOT=/path/to/csvs
+#   export CONCISEJEPA_EMBEDDING_ROOT=/path/to/embedding/root
+csv_root: ${oc.env:CONCISEJEPA_CSV_ROOT,/hpc/group/singhlab/user/me196/projects/moleculerep/runs/REVICE/data/bindingdb}
+embedding_root: ${oc.env:CONCISEJEPA_EMBEDDING_ROOT,/hpc/group/singhlab/user/cy244/projects/peptides}
+
+train_csv: ${.csv_root}/train.csv
+val_csv: ${.csv_root}/val.csv
+test_csv: ${.csv_root}/test.csv
+protein_embeddings_path: ${.embedding_root}/raygun_embeddings.pt
+morgan_embeddings_path: ${.embedding_root}/count_combined_embeddings/morgan_embeddings.pt
+smiles_embeddings_path: ${.embedding_root}/coati_embeddings.pt
+
+fingerprint_kind: ecfp-count:4
+fingerprint_length: 2048
+embedding_device: cuda:0
+coati_doc_url: s3://terray-public/models/grande_closed.pkl
+sequence_col: Target Sequence
+smiles_col: SMILES
+label_col: Label
+batch_size: 1028
+num_workers: 4
+pin_memory: true
+persistent_workers: true

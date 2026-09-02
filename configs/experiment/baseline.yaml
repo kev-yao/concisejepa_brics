@@ -1,0 +1,10 @@
+# @package _global_
+defaults:
+  - override /model: wholemol_fsq
+  - override /data: bindingdb
+  - override /task: dti_jepa
+  - override /callbacks: wholemol_fsq
+  - override /trainer: default
+
+run:
+  name_prefix: baseline-fsq

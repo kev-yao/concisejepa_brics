@@ -1,0 +1,56 @@
+#!/bin/bash
+# Generic collaborator-safe launcher.
+#
+# Examples:
+#   CONCISEJEPA_ENV=/path/to/env sbatch launchers/train.sbatch
+#   EXPERIMENT=diveq CONCISEJEPA_ENV=/path/to/env sbatch launchers/train.sbatch
+#
+# Dataset and output locations are supplied through CONCISEJEPA_* environment
+# variables; no collaborator-owned path is baked into this launcher.
+
+#SBATCH --job-name=concisejepa
+#SBATCH --partition=scavenger-gpu
+#SBATCH --gres=gpu:1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=64G
+#SBATCH --time=12:00:00
+#SBATCH --output=slurm-%x-%j.out
+#SBATCH --error=slurm-%x-%j.err
+
+set -eo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="${CONCISEJEPA_PROJECT_ROOT:-$(cd "$SCRIPT_DIR/.." && pwd)}"
+EXPERIMENT="${EXPERIMENT:-baseline}"
+RUN_ROOT="${CONCISEJEPA_RUN_ROOT:-$PROJECT_ROOT/scratch/runs}"
+
+if [[ -n "${CONCISEJEPA_ENV:-}" ]]; then
+    eval "$(micromamba shell hook --shell=bash)"
+    micromamba activate "$CONCISEJEPA_ENV"
+fi
+
+if ! python -c "import hydra, torch, pytorch_lightning"; then
+    echo "ERROR: activate the project environment or set CONCISEJEPA_ENV." >&2
+    exit 1
+fi
+
+export PYTHONPATH="$PROJECT_ROOT/src:${PYTHONPATH:-}"
+export CONCISEJEPA_RUN_ROOT="$RUN_ROOT"
+export TMPDIR="${TMPDIR:-/tmp/${USER}/concisejepa_${SLURM_JOB_ID:-manual}}"
+export TMP="$TMPDIR"
+export TEMP="$TMPDIR"
+export MPLCONFIGDIR="$TMPDIR/matplotlib"
+export XDG_CACHE_HOME="$TMPDIR/cache"
+mkdir -p "$RUN_ROOT" "$TMPDIR" "$MPLCONFIGDIR" "$XDG_CACHE_HOME"
+
+cd "$PROJECT_ROOT"
+
+echo "experiment=$EXPERIMENT"
+echo "project_root=$PROJECT_ROOT"
+echo "run_root=$RUN_ROOT"
+echo "git_commit=$(git rev-parse HEAD)"
+
+python main.py \
+    experiment="$EXPERIMENT" \
+    hydra.run.dir="$RUN_ROOT/hydra/${SLURM_JOB_ID:-manual}"

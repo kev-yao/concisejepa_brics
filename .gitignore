@@ -13,7 +13,8 @@ wheels/
 wandb/
 slurm_outputs/
 outputs/
-docs/
 grande_closed.pkl
 checkpoints/
 make_molfeat.py
+
+scratch

@@ -1,0 +1,23 @@
+_target_: concisejepa.models.concise_jepa.ConciseJEPA
+concise_backbone:
+  _target_: concisejepa.models.concise.Concise
+  drug_layers:
+    - [32, 32, 32]
+  drug_quantizer:
+    type: diveq
+    num_groups: 3
+    codebook_size: 32
+    group_dim: 1
+    sigma: 0.01
+    replacement_interval: 100
+    discard_threshold: 0.01
+    replacement_perturbation: 1.0e-9
+  ligand_dim: 2048
+  residue_dim: 1280
+  drug_dim: 128
+  proj_dim: 256
+  nheads: 32
+  activation: tanh
+  cosine_prediction: false
+smiles_target_dim: 256
+jepa_hidden_dim: 512

@@ -1,0 +1,4 @@
+_target_: concisejepa.lightning_modules.lit_fragment.LitFragment
+_recursive_: false
+jepa_loss_type: mse
+jepa_logit_scale_init: 14.0

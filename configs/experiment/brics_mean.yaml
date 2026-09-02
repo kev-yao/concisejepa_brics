@@ -1,0 +1,18 @@
+# @package _global_
+defaults:
+  - override /model: brics_fsq
+  - override /data: brics_bindingdb
+  - override /task: brics_jepa
+  - override /callbacks: brics_fsq
+  - override /trainer: fragment_default
+
+run:
+  name_prefix: brics-mean
+
+# The reference spike defaults disable both auxiliary objectives. Keeping that
+# behavior is important for training-trajectory parity during migration.
+chem_supervision:
+  enabled: false
+
+group_supervision:
+  enabled: false

@@ -152,8 +152,6 @@ PERSISTENT_WORKERS="${PERSISTENT_WORKERS:-false}"
 
 DRUG_QUANTIZER_TYPE="fsq"
 
-CHECKPOINT_DIR="$RUN_DIR/checkpoints"
-
 echo "CONFIG_PATH=$CONFIG_PATH"
 echo "RUN_DIR=$RUN_DIR"
 echo "TRAIN_CSV=$TRAIN_CSV"
@@ -180,30 +178,29 @@ python "$PROJECT_ROOT/main.py" \
   trainer.max_epochs="$MAX_EPOCHS" \
   trainer.accelerator="$TRAINER_ACCELERATOR" \
   trainer.devices="$TRAINER_DEVICES" \
-  datamodule.batch_size="$BATCH_SIZE" \
-  datamodule.train_csv="$TRAIN_CSV" \
-  datamodule.val_csv="$VAL_CSV" \
-  datamodule.test_csv="$TEST_CSV" \
-  datamodule.protein_embeddings_path="$PROTEIN_EMB_PATH" \
-  datamodule.morgan_embeddings_path="$MORGAN_EMB_PATH" \
-  datamodule.smiles_embeddings_path="$SMILES_EMB_PATH" \
-  datamodule.num_workers="$NUM_WORKERS" \
-  datamodule.persistent_workers="$PERSISTENT_WORKERS" \
-  checkpoint.dir="$CHECKPOINT_DIR" \
-  logging.save_dir="$RUN_DIR/logs" \
+  data.batch_size="$BATCH_SIZE" \
+  data.train_csv="$TRAIN_CSV" \
+  data.val_csv="$VAL_CSV" \
+  data.test_csv="$TEST_CSV" \
+  data.protein_embeddings_path="$PROTEIN_EMB_PATH" \
+  data.morgan_embeddings_path="$MORGAN_EMB_PATH" \
+  data.smiles_embeddings_path="$SMILES_EMB_PATH" \
+  data.num_workers="$NUM_WORKERS" \
+  data.persistent_workers="$PERSISTENT_WORKERS" \
+  run.output_root="$RUN_DIR" \
   hydra.run.dir="$RUN_DIR/hydra" \
   hydra.sweep.dir="$RUN_DIR/multirun" \
   coati_validation.enabled="$ENABLE_COATI_VALIDATION"
 
 echo "===== TRAINING COMPLETE ====="
 echo "Run directory: $RUN_DIR"
-echo "Checkpoint root: $CHECKPOINT_DIR"
-METRICS_DIR=$(find "$RUN_DIR/logs" -maxdepth 1 -mindepth 1 -type d -name 'concisejepa-*' | sort | tail -n 1 || true)
+EXPERIMENT_DIR=$(find "$RUN_DIR" -maxdepth 1 -mindepth 1 -type d -name 'concisejepa-*' | sort | tail -n 1 || true)
+METRICS_DIR="$EXPERIMENT_DIR"
 if [[ -n "$METRICS_DIR" ]]; then
   echo "Metrics directory: $METRICS_DIR"
-  find "$METRICS_DIR" -maxdepth 2 -type f \( -name 'metrics.csv' -o -name 'epoch_metrics.jsonl' -o -name 'final_metrics.json' \) | sort || true
+  find "$METRICS_DIR" -maxdepth 3 -type f \( -name 'metrics.csv' -o -name 'epoch_metrics.jsonl' -o -name 'final_metrics.json' -o -name 'resolved_config.yaml' \) | sort || true
+  find "$METRICS_DIR/checkpoints" -maxdepth 1 -type f | sort || true
 fi
-find "$CHECKPOINT_DIR" -maxdepth 3 -type f | sort || true
 
 FINAL_METRICS_JSON=""
 if [[ -n "$METRICS_DIR" ]]; then

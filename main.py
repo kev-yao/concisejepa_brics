@@ -1,172 +1,120 @@
 import json
 import os
+import subprocess
+import sys
 import uuid
 from pathlib import Path
 
 import hydra
 import pytorch_lightning as pl
 import torch
-from omegaconf import DictConfig, ListConfig, open_dict
-from pytorch_lightning.callbacks import Callback, ModelCheckpoint, TQDMProgressBar
-from pytorch_lightning.loggers import CSVLogger
-
-from concisejepa.datamodules import BindingDBDictDataModule
-from concisejepa.datamodules.dataloader import _validate_fingerprint_model_dimensions
-from concisejepa.lightning_modules import LitConciseJEPA
-from concisejepa.evals.FSQ_monitor import FSQMonitorCallback
-from concisejepa.evals.chem_codebook_eval import ChemCodebookEvalCallback
+from hydra.utils import instantiate
+from omegaconf import DictConfig, ListConfig, OmegaConf, open_dict
+from pytorch_lightning.callbacks import ModelCheckpoint
 
 
-class EpochMetricsWriter(Callback):
-    def __init__(self, output_dir: str) -> None:
-        super().__init__()
-        self.output_dir = Path(output_dir)
-        self.epoch_metrics_jsonl_path = self.output_dir / "epoch_metrics.jsonl"
-        self.epoch_metrics_json_path = self.output_dir / "epoch_metrics.json"
-        self.final_metrics_path = self.output_dir / "final_metrics.json"
-        self._epoch_records: list[dict[str, float | list[float] | str]] = []
-        self._last_written_epoch: int | None = None
+def _prepare_runtime_config(cfg: DictConfig) -> None:
+    """Resolve a unique run directory before instantiating components."""
+    run_id = str(uuid.uuid4())[:8]
+    run_name = f"{cfg.run.name_prefix}-{run_id}"
+    run_dir = Path(cfg.run.output_root).expanduser().resolve() / run_name
 
-    @staticmethod
-    def _serialize_metric_value(value):
-        if isinstance(value, torch.Tensor):
-            if value.numel() == 1:
-                return float(value.detach().cpu().item())
-            return [float(v) for v in value.detach().cpu().reshape(-1).tolist()]
-        if isinstance(value, (int, float)):
-            return float(value)
-        return value
+    with open_dict(cfg):
+        cfg.runtime.run_id = run_id
+        cfg.runtime.run_name = run_name
+        cfg.runtime.run_dir = str(run_dir)
+        cfg.runtime.checkpoint_dir = str(run_dir / "checkpoints")
+        if bool(cfg.forward_capture.get("enabled", False)):
+            cfg.forward_capture.output_path = str(run_dir / cfg.forward_capture.filename)
 
-    def _serialized_callback_metrics(self, trainer: pl.Trainer) -> dict[str, float | list[float] | str]:
-        serialized: dict[str, float | list[float] | str] = {}
-        for key, value in trainer.callback_metrics.items():
-            metric_value = self._serialize_metric_value(value)
-            if isinstance(metric_value, (float, list, str)):
-                serialized[str(key)] = metric_value
-        return serialized
 
-    def on_validation_epoch_end(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> None:
-        del pl_module
-        if trainer.sanity_checking:
-            return
-        epoch = int(trainer.current_epoch)
-        if self._last_written_epoch == epoch:
-            return
-        self._last_written_epoch = epoch
+def _instantiate_callbacks(callback_cfg: DictConfig) -> tuple[list, dict[str, object]]:
+    """Instantiate enabled callback configs and retain stable config names."""
+    callbacks = []
+    callbacks_by_name: dict[str, object] = {}
+    for name, raw_cfg in callback_cfg.items():
+        if raw_cfg is None or not bool(raw_cfg.get("enabled", True)):
+            continue
+        # Resolve interpolations while the callback is still attached to the
+        # full config tree (where ``runtime.*`` lives), then detach it.
+        component_cfg = OmegaConf.create(OmegaConf.to_container(raw_cfg, resolve=True))
+        with open_dict(component_cfg):
+            component_cfg.pop("enabled", None)
+        callback = instantiate(component_cfg)
+        callbacks.append(callback)
+        callbacks_by_name[str(name)] = callback
+    return callbacks, callbacks_by_name
 
-        self.output_dir.mkdir(parents=True, exist_ok=True)
-        metrics = {"epoch": epoch}
-        metrics.update(self._serialized_callback_metrics(trainer))
-        self._epoch_records.append(metrics)
-        with self.epoch_metrics_jsonl_path.open("a", encoding="utf-8") as f:
-            f.write(json.dumps(metrics, sort_keys=True) + "\n")
-        with self.epoch_metrics_json_path.open("w", encoding="utf-8") as f:
-            json.dump(self._epoch_records, f, indent=2, sort_keys=True)
 
-    def on_fit_end(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> None:
-        del pl_module
-        self.output_dir.mkdir(parents=True, exist_ok=True)
-        final_metrics = self._serialized_callback_metrics(trainer)
-        final_metrics["epoch"] = int(trainer.current_epoch)
-        with self.final_metrics_path.open("w", encoding="utf-8") as f:
-            json.dump(final_metrics, f, indent=2, sort_keys=True)
+def _write_run_manifest(cfg: DictConfig) -> None:
+    """Write the fully resolved experiment config beside the run artifacts."""
+    run_dir = Path(cfg.runtime.run_dir)
+    run_dir.mkdir(parents=True, exist_ok=True)
+    resolved = OmegaConf.to_container(cfg, resolve=True)
+    (run_dir / "resolved_config.yaml").write_text(OmegaConf.to_yaml(cfg, resolve=True), encoding="utf-8")
+    try:
+        git_commit = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], text=True, stderr=subprocess.DEVNULL
+        ).strip()
+        git_dirty = bool(
+            subprocess.check_output(
+                ["git", "status", "--porcelain"], text=True, stderr=subprocess.DEVNULL
+            ).strip()
+        )
+    except (OSError, subprocess.SubprocessError):
+        git_commit = None
+        git_dirty = None
+
+    (run_dir / "run_manifest.json").write_text(
+        json.dumps(
+            {
+                "argv": sys.argv,
+                "git_commit": git_commit,
+                "git_dirty": git_dirty,
+                "run_id": cfg.runtime.run_id,
+                "run_name": cfg.runtime.run_name,
+                "slurm_job_id": os.environ.get("SLURM_JOB_ID"),
+                "config": resolved,
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
 
 
 @hydra.main(version_base=None, config_path="configs", config_name="config")
 def main(cfg: DictConfig) -> None:
     torch.serialization.add_safe_globals([DictConfig, ListConfig])
     pl.seed_everything(cfg.seed, workers=True)
+    _prepare_runtime_config(cfg)
+    _write_run_manifest(cfg)
 
-    fingerprint_length = int(getattr(cfg.datamodule, "fingerprint_length", 2048))
-    ligand_dim = int(cfg.model.concise_backbone.ligand_dim)
-    _validate_fingerprint_model_dimensions(fingerprint_length, ligand_dim)
+    model = instantiate(cfg.model)
+    datamodule = instantiate(cfg.data)
+    # ``config`` is the first positional parameter of hydra.instantiate itself,
+    # so use an unambiguous task-constructor keyword for the global config.
+    task = instantiate(cfg.task, experiment_config=cfg, model=model)
+    callbacks, callbacks_by_name = _instantiate_callbacks(cfg.callbacks)
+    logger = instantiate(cfg.logger)
+    trainer = instantiate(cfg.trainer, logger=logger, callbacks=callbacks)
 
-    run_id = str(uuid.uuid4())[:8]
-    run_name = f"{cfg.logging.run_name_prefix}-{run_id}"
-    metrics_dir = os.path.join(cfg.logging.save_dir, run_name)
-    forward_capture_cfg = getattr(cfg, "forward_capture", {})
-    if bool(forward_capture_cfg.get("enabled", False)):
-        with open_dict(cfg):
-            cfg.forward_capture.output_path = os.path.join(
-                metrics_dir,
-                forward_capture_cfg.get("filename", "train_forward_logits_last.json"),
-            )
-    csv_logger = CSVLogger(
-        save_dir=cfg.logging.save_dir,
-        name=run_name,
-    )
+    trainer.fit(task, datamodule=datamodule)
 
-    checkpoint_dir = os.path.join(cfg.checkpoint.dir, run_name)
-    os.makedirs(checkpoint_dir, exist_ok=True)
-    # Best-by-monitor checkpoint, kept for reference only. auto_insert_metric_name=False
-    # avoids a real bug found in the fragment-pooling training script: Lightning's default
-    # filename formatting prepends the raw metric NAME before its value, and since the
-    # monitored key contains a literal "/" (e.g. "val/dti_auprc"), that slash lands in the
-    # filename and silently creates a spurious subdirectory — which also appears to break
-    # save_last's independence from the monitor. Final-epoch weights are now guaranteed by
-    # a fully separate, monitor-free callback below instead of relying on save_last at all.
-    checkpoint_callback = ModelCheckpoint(
-        dirpath=checkpoint_dir,
-        filename=cfg.checkpoint.filename,
-        auto_insert_metric_name=False,
-        monitor=cfg.checkpoint.monitor,
-        mode=cfg.checkpoint.mode,
-        save_top_k=cfg.checkpoint.save_top_k,
-        save_last=False,
-    )
-    # Guaranteed true-final-epoch checkpoint, independent of any monitored metric — this is
-    # the canonical checkpoint used for testing and all downstream evaluation.
-    final_checkpoint_callback = ModelCheckpoint(
-        dirpath=checkpoint_dir,
-        filename="final",
-        monitor=None,
-        save_top_k=1,
-    )
-    progress_bar_callback = TQDMProgressBar()
-    metrics_callback = EpochMetricsWriter(output_dir=metrics_dir)
-
-    callbacks = [checkpoint_callback, final_checkpoint_callback, progress_bar_callback, metrics_callback]
-    quantizer_type = str(cfg.model.concise_backbone.drug_quantizer.type).lower()
-    fsq_monitor_dir = None
-    if quantizer_type == "fsq":
-        fsq_monitor_dir = os.path.join(metrics_dir, "fsq_logs")
-        callbacks.append(
-            FSQMonitorCallback(
-                output_dir=fsq_monitor_dir,
-                num_codes=32,
-                monitor_train=True,
-                monitor_validation=True,
-            )
-        )
-    callbacks.append(ChemCodebookEvalCallback())
-
-    lit_module = LitConciseJEPA(cfg)
-    data_module = BindingDBDictDataModule(cfg.datamodule)
-
-    trainer = pl.Trainer(
-        logger=csv_logger,
-        callbacks=callbacks,
-        **cfg.trainer,
-    )
-
-    trainer.fit(lit_module, datamodule=data_module)
-
-    best_ckpt = checkpoint_callback.best_model_path
-    final_ckpt = final_checkpoint_callback.best_model_path
+    best_callback = callbacks_by_name.get("best_checkpoint")
+    final_callback = callbacks_by_name.get("final_checkpoint")
+    best_ckpt = best_callback.best_model_path if isinstance(best_callback, ModelCheckpoint) else ""
+    final_ckpt = final_callback.best_model_path if isinstance(final_callback, ModelCheckpoint) else ""
     test_ckpt = final_ckpt or None
     if test_ckpt:
         print(f"Testing with FINAL-EPOCH checkpoint: {test_ckpt}")
         print(f"(best-by-monitor checkpoint, for reference only: {best_ckpt})")
     else:
         print("No saved final checkpoint found; testing with current in-memory weights.")
-    trainer.test(lit_module, datamodule=data_module, ckpt_path=test_ckpt)
-    print(f"Epoch metrics JSONL: {os.path.join(metrics_dir, 'epoch_metrics.jsonl')}")
-    print(f"Final metrics JSON: {os.path.join(metrics_dir, 'final_metrics.json')}")
-    print(f"Lightning metrics CSV: {os.path.join(metrics_dir, 'version_0', 'metrics.csv')}")
-    if fsq_monitor_dir is not None:
-        print(f"FSQ monitoring logs: {fsq_monitor_dir}")
-    if bool(forward_capture_cfg.get("enabled", False)):
-        print(f"Forward capture JSON: {cfg.forward_capture.output_path}")
+    trainer.test(task, datamodule=datamodule, ckpt_path=test_ckpt)
+    print(f"Run directory: {cfg.runtime.run_dir}")
+    print(f"Resolved config: {Path(cfg.runtime.run_dir) / 'resolved_config.yaml'}")
 
 
 if __name__ == "__main__":
