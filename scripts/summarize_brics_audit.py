@@ -23,6 +23,7 @@ def extract(summary):
         "val_whole_auprc": best["validation"]["whole"]["auprc"],
         "dti_epoch": best["epoch"],
         "jepa_epoch": jepa["epoch"],
+        "jepa_checkpoint_val_auprc": jepa["validation"]["mean"]["auprc"],
     }
     recon = summary.get("reconstruction")
     if recon:
@@ -100,6 +101,7 @@ def summary(root):
         f"Completed {len(rows)}/18 fixed runs. Mean ± sample SD across training seeds, not a confidence interval.",
         "",
         "All DTI scores are pooled over rows. Checkpoints selected by validation; test scores are not used for model selection.",
+        "Binding columns use the best-DTI checkpoint; reconstruction columns use the best-JEPA checkpoint. These can be different epochs, so the table does not imply one checkpoint attains both optima. The CSV includes binding AP at the reconstruction-selected checkpoint.",
         "",
         "| Arm | Seeds | Val AP | Test AP | Test AUROC | Unique val JEPA MSE | ECFP all | Valid rate |",
         "|---|---:|---:|---:|---:|---:|---:|---:|",

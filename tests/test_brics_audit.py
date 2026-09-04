@@ -36,6 +36,27 @@ class FixedPredictions(nn.Module):
 
 
 class AuditTests(unittest.TestCase):
+    def test_conditional_metrics_and_probability_boundaries(self):
+        mod = load_script("brics_conditional_metrics")
+        frame = pd.DataFrame(
+            {
+                "protein": ["A"] * 6 + ["B"] * 6,
+                "label": [0, 0, 0, 1, 1, 1] * 2,
+                "mean": [0.2] * 6 + [0.8] * 6,
+            }
+        )
+        result = mod.conditional_metrics(frame, "protein")
+        self.assertEqual(result["groups"], 2)
+        self.assertEqual(result["macro_auroc"], 0.5)
+        self.assertEqual(result["macro_ap_lift_over_constant"], 0)
+        frame.loc[3, "mean"] = 0.0
+        frame.loc[4, "mean"] = 1e-8
+        frame.loc[0, "mean"] = 1.0
+        values = mod.probability_diagnostics(frame)
+        self.assertEqual(values["exact_zero_positive_predictions"], 1)
+        self.assertEqual(values["near_zero_positive_predictions"], 2)
+        self.assertEqual(values["exact_one_negative_predictions"], 1)
+
     def test_unique_validation_weights_each_molecule_once(self):
         from concisejepa.evals.reconstruction import UniqueJEPAValidation
 
@@ -51,9 +72,7 @@ class AuditTests(unittest.TestCase):
         )
         captured = {}
         task.log = lambda name, value, **kwargs: captured.update({name: value})
-        UniqueJEPAValidation().on_validation_epoch_end(
-            SimpleNamespace(sanity_checking=False, datamodule=dm), task
-        )
+        UniqueJEPAValidation().on_validation_epoch_end(SimpleNamespace(sanity_checking=False, datamodule=dm), task)
         with torch.no_grad():
             expected = (task.model(*batch[:4])["jepa_pred"] - batch[4]).square().mean()
         torch.testing.assert_close(captured["val/unique_jepa_mse"], expected)

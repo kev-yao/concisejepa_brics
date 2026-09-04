@@ -109,19 +109,26 @@ are preliminary evidence; uncertainty across dataset splits is not measured.
 with a fixed pseudocount of 10, and reports both held-out splits. It also identifies
 distinct canonical molecules with exactly identical multisets of cached fragment
 fingerprints. These controls do not change the training conditions.
+It saves `fragment_input_groups.csv` so binding scores can be stratified by whether
+the fragment multiset appeared in training, alongside receptor-prior scores on those
+same subsets. Canonical-molecule disjointness alone does not imply novel model inputs.
 
 `brics_conditional_metrics.py` computes validation ranking metrics within proteins
 and within molecules, restricted to groups with at least five rows and both labels.
 Macro AUROC weights groups equally; pair-weighted AUROC weights each within-group
 positive/negative comparison equally. AP minus prevalence is only a descriptive
 comparison with a constant predictor, not a permutation significance test.
+The companion `probability_and_novelty_validation_metrics.json` reports the novelty
+subsets and exact-zero/near-zero predictions on positive examples. Nonnegative cosine
+is mathematically in [0,1], but that alone does not establish probability calibration;
+Brier score and boundary counts check separate failure modes without changing the head.
 
 `summarize_brics_audit.py` writes CSV, JSON, and a Markdown report, including paired
 seed contrasts. `plot_brics_audit.py` exports comparison plots and the first six
 random reconstruction examples from each seed-42 sample, without cherry-picking.
 `launchers/brics_audit_report.sbatch` can run these after the training array finishes.
 
-Validation: 30 relevant tests pass, including pooled-metric/reset checks, canonical
+Validation: 31 relevant tests pass, including pooled-metric/reset checks, canonical
 split integrity, continuous gradient isolation, unique-molecule validation weighting,
 and existing training-refactor parity checks. The older `test_quantizers.py` suite
 has six failures and two errors concerning historical residual-branch expectations;

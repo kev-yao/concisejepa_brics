@@ -6,7 +6,23 @@ import json
 from pathlib import Path
 
 import pandas as pd
-from sklearn.metrics import average_precision_score, roc_auc_score
+from sklearn.metrics import average_precision_score, roc_auc_score, brier_score_loss
+
+
+def probability_diagnostics(frame, score_column="mean"):
+    y, pred = frame.label, frame[score_column]
+    positive = y == 1
+    return {
+        "rows": len(frame),
+        "positives": int(positive.sum()),
+        "positive_rate": float(y.mean()) if len(frame) else None,
+        "auprc": float(average_precision_score(y, pred)) if y.nunique() == 2 else None,
+        "auroc": float(roc_auc_score(y, pred)) if y.nunique() == 2 else None,
+        "brier": float(brier_score_loss(y, pred)) if len(frame) else None,
+        "exact_zero_positive_predictions": int((positive & (pred == 0)).sum()),
+        "near_zero_positive_predictions": int((positive & (pred < 1e-6)).sum()),
+        "exact_one_negative_predictions": int(((y == 0) & (pred == 1)).sum()),
+    }
 
 
 def conditional_metrics(frame, group_column, score_column="mean", min_rows=5):
@@ -45,6 +61,9 @@ def conditional_metrics(frame, group_column, score_column="mean", min_rows=5):
 
 def run(root):
     result = {}
+    novelty_path = root / "fragment_input_groups.csv"
+    novelty = pd.read_csv(novelty_path) if novelty_path.exists() else None
+    probability_results = {}
     for path in sorted(root.glob("*/seed_*/best_dti_val_predictions.csv")):
         frame = pd.read_csv(path)
         values = {}
@@ -52,7 +71,21 @@ def run(root):
             for view in ("mean", "whole", "fragment"):
                 values[f"{group}_{view}"] = conditional_metrics(frame, col, view)
         result[str(path.parent.relative_to(root))] = values
+        cohorts = {"all": frame}
+        if novelty is not None:
+            joined = frame.merge(novelty[novelty.split == "val"], on="SMILES", validate="many_to_one")
+            if len(joined) != len(frame):
+                raise ValueError("Fragment novelty table does not cover every validation row")
+            for seen in (False, True):
+                cohorts[f"fragment_input_seen_in_train_{seen}"] = joined[joined.fragment_input_seen_in_train == seen]
+        probability_results[str(path.parent.relative_to(root))] = {
+            name: {view: probability_diagnostics(group, view) for view in ("mean", "whole", "fragment")}
+            for name, group in cohorts.items()
+        }
     (root / "conditional_validation_metrics.json").write_text(json.dumps(result, indent=2) + "\n")
+    (root / "probability_and_novelty_validation_metrics.json").write_text(
+        json.dumps(probability_results, indent=2) + "\n"
+    )
     print(json.dumps(result, indent=2))
 
 
