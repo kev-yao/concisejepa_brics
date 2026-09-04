@@ -4,12 +4,16 @@
 # Examples:
 #   CONCISEJEPA_ENV=/path/to/env sbatch launchers/train.sbatch
 #   EXPERIMENT=diveq CONCISEJEPA_ENV=/path/to/env sbatch launchers/train.sbatch
+#   sbatch --partition=h200-hp --account=singhlab_h200_r \
+#     --qos=singhlab_h200 --gres=gpu:h200:1 launchers/train.sbatch
 #
 # Dataset and output locations are supplied through CONCISEJEPA_* environment
 # variables; no collaborator-owned path is baked into this launcher.
 
 #SBATCH --job-name=concisejepa
-#SBATCH --partition=scavenger-gpu
+#SBATCH --partition=singhlab-gpu
+#SBATCH --account=singhlab
+#SBATCH --qos=normal
 #SBATCH --gres=gpu:1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
