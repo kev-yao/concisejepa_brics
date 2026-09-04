@@ -11,6 +11,7 @@ before changing training code or adding an experiment.
 4. [Migration notes](migration-notes.md) — what changed in the Hydra/BRICS refactor and what remains transitional.
 5. [Dual-view BRICS](dual-view-brics.md) — the shared-codebook Set Transformer experiment and losses.
 6. [BRICS audit protocol](brics-audit-experiments.md) — cold-molecule splits, controlled ablations, numerical cache checks, and evaluation rules.
+7. [BRICS audit results](brics-audit-results.md) — completed comparisons, interpretation limits, and the matched-input follow-up status.
 
 ## Quick reference
 

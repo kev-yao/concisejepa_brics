@@ -81,7 +81,7 @@ def main():
         "Matched count inputs (JEPA-only controls reused)" if "study" in data else "Legacy mixed count/binary inputs"
     )
     fig.suptitle(
-        f"{scope}; {data['completed_runs']}/18 conditions complete\nFixed cold-molecule split; each dot is a training seed"
+        f"{scope}; {data['completed_runs']}/18 runs available\nFixed cold-molecule split; each dot is a training seed"
     )
     fig.savefig(args.root / "comparison.png", dpi=180)
     fig.savefig(args.root / "comparison.pdf")

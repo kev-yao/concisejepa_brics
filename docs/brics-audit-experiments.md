@@ -161,7 +161,8 @@ The six JEPA-only runs are reused: whole inputs do not affect their active objec
 A test checks bit-exact three-step AdamW parameter/loss trajectories under binary vs
 count whole inputs for both representation choices. Their unused DTI diagnostics are
 not interpreted. A `study_manifest.json` records reuse explicitly; there are 12 new
-training runs, not 18 independent reruns. Total study: 30 trained runs.
+training runs, not 18 independent reruns. Planned total study: 30 trained runs;
+the results document distinguishes completed and queued work.
 
 ```bash
 # After the legacy-input suite, retaining a two-GPU concurrency limit:
