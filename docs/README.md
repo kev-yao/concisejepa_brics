@@ -9,6 +9,7 @@ before changing training code or adding an experiment.
 2. [Experiments](experiments.md) — Hydra composition, available experiments, launch commands, and extension patterns.
 3. [Development](development.md) — invariants, tests, storage rules, and the change checklist.
 4. [Migration notes](migration-notes.md) — what changed in the Hydra/BRICS refactor and what remains transitional.
+5. [Dual-view BRICS](dual-view-brics.md) — the shared-codebook Set Transformer experiment and losses.
 
 ## Quick reference
 
@@ -30,6 +31,8 @@ Supported named experiments:
 | `brics_mean` | BRICS fragment FSQ with mean pooling and reference spike defaults |
 | `brics_xattn` | BRICS fragment FSQ with the unpooled cross-attention JEPA predictor |
 | `brics_debug` | BRICS mean model with two train/validation/test batches |
+| `brics_dual_view` | Shared fragment/whole codebook, Set Transformer, cosine-probability DTI |
+| `brics_dual_view_debug` | Two-batch dual-view BRICS smoke run |
 
 Typical launches:
 
@@ -38,6 +41,7 @@ python main.py experiment=baseline
 python main.py experiment=brics_mean
 python main.py experiment=brics_mean model.concise_fragment.pooling=f2r
 python main.py experiment=brics_debug
+python main.py experiment=brics_dual_view_debug
 ```
 
 The Slurm launcher uses `EXPERIMENT=baseline` when no experiment is supplied:

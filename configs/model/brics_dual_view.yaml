@@ -1,0 +1,20 @@
+_target_: concisejepa.models.brics_dual_view.BricsDualViewJEPA
+drug_layers:
+  - [32, 32, 32]
+ligand_dim: 2048
+residue_dim: 1280
+drug_dim: 128
+dti_dim: 256
+protein_heads: 32
+encoder_activation: tanh
+drug_quantizer:
+  type: fsq
+
+# Permutation-invariant: learned summary token, padding mask, no positions.
+fragment_transformer_depth: 2
+fragment_transformer_heads: 8
+fragment_transformer_mlp_ratio: 4.0
+fragment_transformer_dropout: 0.1
+
+coati_target_dim: 256
+coati_hidden_dim: 512

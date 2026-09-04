@@ -42,6 +42,8 @@ and prefix `baseline-fsq`.
 | `brics_mean` | `brics_fsq` | `brics_bindingdb` | `brics_jepa` | `fragment_default` |
 | `brics_xattn` | `brics_xattn` | `brics_bindingdb` | `brics_jepa` | `fragment_default` |
 | `brics_debug` | `brics_fsq` | `brics_bindingdb` | `brics_jepa` | `debug` |
+| `brics_dual_view` | `brics_dual_view` | `brics_dual_view` | `brics_dual_view` | `fragment_default` |
+| `brics_dual_view_debug` | `brics_dual_view` | `brics_dual_view` | `brics_dual_view` | `debug` |
 
 ## Paths and launching
 

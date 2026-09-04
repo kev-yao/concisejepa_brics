@@ -1,0 +1,23 @@
+_target_: concisejepa.datamodules.fragment.DualViewFragmentDataModule
+
+data_root: ${oc.env:CONCISEJEPA_BRICS_DATA_ROOT,/hpc/group/singhlab/user/cy244/projects/peptides/BindingDB_embeddings}
+
+train_csv: ${.data_root}/train.csv
+val_csv: ${.data_root}/val.csv
+test_csv: ${.data_root}/test.csv
+protein_embeddings_path: ${.data_root}/raygun_embeddings.pt
+fragment_fps_path: ${.data_root}/fragment_fps_r4_2048.pt
+morgan_embeddings_path: ${.data_root}/morgan_embeddings.pt
+smiles_embeddings_path: ${.data_root}/coati_embeddings.pt
+
+fingerprint_kind: ecfp-count:4
+fingerprint_length: 2048
+max_fragments: 16
+validate_metadata: true
+sequence_col: Target Sequence
+smiles_col: SMILES
+label_col: Label
+batch_size: 256
+num_workers: 0
+pin_memory: false
+persistent_workers: false

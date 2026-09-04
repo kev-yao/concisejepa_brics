@@ -84,6 +84,18 @@ Use the unpooled fragment/protein cross-attention JEPA predictor with:
 python main.py experiment=brics_xattn
 ```
 
+Run the shared-codebook dual-view experiment, in which a Set Transformer predicts
+the molecule COATI representation from fragment codes while whole-molecule and
+fragment-set vectors receive cosine-probability DTI supervision:
+
+```bash
+python main.py experiment=brics_dual_view
+python main.py experiment=brics_dual_view_debug
+```
+
+See [the dual-view experiment specification](docs/dual-view-brics.md) for its
+tensor contract, losses, and planned ablations.
+
 `experiment=brics_debug` limits train, validation, and test to two batches. BRICS
 experiments intentionally preserve the reference spike defaults: 30 epochs, batch
 size 256, MSE JEPA loss, and chemical/group auxiliary supervision disabled.

@@ -12,6 +12,8 @@ wheels/
 # Generated files
 wandb/
 slurm_outputs/
+slurm-*.out
+slurm-*.err
 outputs/
 grande_closed.pkl
 checkpoints/

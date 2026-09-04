@@ -1,0 +1,30 @@
+# @package _global_
+defaults:
+  - override /model: brics_dual_view
+  - override /data: brics_dual_view
+  - override /task: brics_dual_view
+  - override /callbacks: brics_fsq
+  - override /trainer: debug
+
+run:
+  name_prefix: brics-dual-view-debug
+
+dual_view_loss:
+  dti_weight: 1.0
+  jepa_weight: 1.0
+  alignment_weight: 1.0
+
+chem_supervision:
+  enabled: false
+
+group_supervision:
+  enabled: false
+
+coati_validation:
+  enabled: false
+
+negative_diagonal_loss:
+  enabled: false
+
+forward_capture:
+  enabled: false
