@@ -1,0 +1,14 @@
+# @package _global_
+defaults:
+  - brics_dual_view
+  - override /data: brics_dual_view_audit
+  - override /callbacks: audit_dual_view
+  - _self_
+run:
+  name_prefix: audit-continuous-joint
+model:
+  molecular_representation: continuous
+dual_view_loss:
+  dti_weight: 1.0
+  jepa_weight: 1.0
+  alignment_weight: 1.0

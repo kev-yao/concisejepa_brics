@@ -1,0 +1,24 @@
+unique_validation:
+  _target_: concisejepa.evals.reconstruction.UniqueJEPAValidation
+best_jepa:
+  _target_: pytorch_lightning.callbacks.ModelCheckpoint
+  dirpath: ${runtime.checkpoint_dir}
+  filename: "jepa-{epoch:02d}"
+  monitor: val/unique_jepa_mse
+  mode: min
+  save_top_k: 1
+best_dti:
+  _target_: pytorch_lightning.callbacks.ModelCheckpoint
+  dirpath: ${runtime.checkpoint_dir}
+  filename: "dti-{epoch:02d}"
+  monitor: val/dti_auprc
+  mode: max
+  save_top_k: 1
+final_checkpoint:
+  _target_: pytorch_lightning.callbacks.ModelCheckpoint
+  dirpath: ${runtime.checkpoint_dir}
+  filename: final
+  save_top_k: 1
+epoch_metrics:
+  _target_: concisejepa.callbacks.EpochMetricsWriter
+  output_dir: ${runtime.run_dir}

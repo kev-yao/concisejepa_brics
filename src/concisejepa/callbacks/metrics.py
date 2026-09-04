@@ -36,7 +36,7 @@ class EpochMetricsWriter(Callback):
                 serialized[str(key)] = metric_value
         return serialized
 
-    def on_validation_epoch_end(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> None:
+    def on_train_epoch_end(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> None:
         del pl_module
         if trainer.sanity_checking:
             return
@@ -61,3 +61,9 @@ class EpochMetricsWriter(Callback):
         final_metrics["epoch"] = int(trainer.current_epoch)
         with self.final_metrics_path.open("w", encoding="utf-8") as f:
             json.dump(final_metrics, f, indent=2, sort_keys=True)
+
+    def on_test_end(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> None:
+        del pl_module
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+        with (self.output_dir / "test_metrics.json").open("w", encoding="utf-8") as f:
+            json.dump(self._serialized_callback_metrics(trainer), f, indent=2, sort_keys=True)

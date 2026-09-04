@@ -137,7 +137,13 @@ def predict_latents(model, smiles, fragment_cache, batch_size: int, device: torc
 
 
 @torch.no_grad()
-def decode_latents(encoder, tokenizer, latents: torch.Tensor, batch_size: int, device: torch.device):
+def decode_latents(encoder, tokenizer, latents: torch.Tensor, batch_size: int, device: torch.device,
+                   seed: int = 123, top_k: int = 1):
+    if top_k < 1:
+        raise ValueError("top_k must be positive")
+    torch.manual_seed(seed)
+    if device.type == "cuda":
+        torch.cuda.manual_seed_all(seed)
     decoded = []
     for start in range(0, latents.shape[0], batch_size):
         chunk = latents[start : start + batch_size].to(device).float()
@@ -146,8 +152,11 @@ def decode_latents(encoder, tokenizer, latents: torch.Tensor, batch_size: int, d
                 h_clip=chunk,
                 tokenizer=tokenizer,
                 noise_scale=0.0,
+                k=top_k,
             )
         )
+    if len(decoded) != len(latents):
+        raise RuntimeError("COATI returned a different number of molecules than requested")
     return decoded
 
 
@@ -163,14 +172,16 @@ def load_model(config, checkpoint: Path):
     return model
 
 
-def sample_test_smiles(config, count: int, seed: int):
+def sample_test_smiles(config, count: int, seed: int, split: str = "test"):
     data = config.data
     fragment_cache = torch.load(data.fragment_fps_path, map_location="cpu", weights_only=False)
     molecule_cache = torch.load(data.morgan_embeddings_path, map_location="cpu", weights_only=False)
     target_cache = torch.load(data.smiles_embeddings_path, map_location="cpu", weights_only=False)
     protein_cache = torch.load(data.protein_embeddings_path, map_location="cpu", weights_only=False)
 
-    frame = pd.read_csv(data.test_csv, usecols=[data.smiles_col, data.sequence_col])
+    if count < 2:
+        raise ValueError("At least two molecules are needed for the shuffled baseline")
+    frame = pd.read_csv(data[f"{split}_csv"], usecols=[data.smiles_col, data.sequence_col])
     frame[data.smiles_col] = frame[data.smiles_col].astype(str).str.strip()
     frame[data.sequence_col] = frame[data.sequence_col].astype(str).str.strip()
     valid_smiles = set(fragment_cache) & set(molecule_cache) & set(target_cache)
@@ -192,6 +203,9 @@ def main() -> None:
     parser.add_argument("--checkpoint", type=Path, required=True)
     parser.add_argument("--n-molecules", type=int, default=100)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--decode-seed", type=int, default=123)
+    parser.add_argument("--top-k", type=int, default=1, help="1 gives greedy decoding")
+    parser.add_argument("--split", choices=["train", "val", "test"], default="test")
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--device", default="cuda:0")
     parser.add_argument("--coati-doc-url", default="s3://terray-public/models/grande_closed.pkl")
@@ -201,7 +215,7 @@ def main() -> None:
     config = OmegaConf.load(args.run_dir / "resolved_config.yaml")
     device = torch.device(args.device)
     sampled, target_latents, fragment_cache, population_size = sample_test_smiles(
-        config, args.n_molecules, args.seed
+        config, args.n_molecules, args.seed, args.split
     )
     print(f"Sampled {len(sampled)} of {population_size} unique valid test molecules.")
 
@@ -217,8 +231,10 @@ def main() -> None:
         doc_url=args.coati_doc_url,
     )
     encoder.eval()
-    predicted_raw = decode_latents(encoder, tokenizer, predicted_latents, args.batch_size, device)
-    target_raw = decode_latents(encoder, tokenizer, target_latents, args.batch_size, device)
+    predicted_raw = decode_latents(encoder, tokenizer, predicted_latents, args.batch_size, device,
+                                   args.decode_seed, args.top_k)
+    target_raw = decode_latents(encoder, tokenizer, target_latents, args.batch_size, device,
+                                args.decode_seed, args.top_k)
 
     targets = [canonicalize_largest_fragment(value) for value in sampled]
     predicted = [canonicalize_largest_fragment(value) for value in predicted_raw]
@@ -232,6 +248,8 @@ def main() -> None:
         examples.append(
             {
                 "target_smiles": targets[index],
+                "input_raw_smiles": sampled[index],
+                "predicted_raw_smiles": predicted_raw[index],
                 "predicted_smiles": predicted[index],
                 "target_latent_decoded_smiles": target_decoded[index],
                 "prediction_ecfp_tanimoto": prediction_scores["ecfp"][index],
@@ -244,7 +262,8 @@ def main() -> None:
     output = {
         "run_dir": str(args.run_dir.resolve()),
         "checkpoint": str(args.checkpoint.resolve()),
-        "split": "test",
+        "split": args.split,
+        "decoding": {"seed": args.decode_seed, "top_k": args.top_k, "noise_scale": 0.0},
         "sampling": {
             "seed": args.seed,
             "n_sampled_unique_molecules": len(sampled),

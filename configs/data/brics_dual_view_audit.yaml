@@ -1,0 +1,7 @@
+defaults:
+  - brics_dual_view
+  - _self_
+
+train_csv: ${oc.env:CONCISEJEPA_AUDIT_DATA_ROOT}/train.csv
+val_csv: ${oc.env:CONCISEJEPA_AUDIT_DATA_ROOT}/val.csv
+test_csv: ${oc.env:CONCISEJEPA_AUDIT_DATA_ROOT}/test.csv

@@ -77,6 +77,7 @@ class BricsDualViewJEPA(nn.Module):
         fragment_transformer_dropout: float = 0.1,
         coati_target_dim: int = 256,
         coati_hidden_dim: int = 512,
+        molecular_representation: str = "fsq",
     ) -> None:
         super().__init__()
         if encoder_activation not in activation_choices:
@@ -89,6 +90,9 @@ class BricsDualViewJEPA(nn.Module):
 
         self.drug_dim = drug_dim
         self.dti_dim = dti_dim
+        if molecular_representation not in ("fsq", "continuous"):
+            raise ValueError("molecular_representation must be fsq or continuous")
+        self.molecular_representation = molecular_representation
         self.drug_encoder = DrugEncoder(
             layers=drug_layers,
             dim=ligand_dim,
@@ -143,13 +147,28 @@ class BricsDualViewJEPA(nn.Module):
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         batch_size, fragment_count, fingerprint_dim = fragment_fingerprints.shape
         flattened = fragment_fingerprints.reshape(batch_size * fragment_count, fingerprint_dim)
-        encoded = self.drug_encoder(flattened)
+        encoded = self._encode_molecule(flattened)
         quantized = encoded["quantized"].squeeze(1).reshape(
             batch_size, fragment_count, self.drug_dim
         )
         codes = encoded["codes"].reshape(batch_size, fragment_count, -1)
         pooled, contextualized = self.fragment_transformer(quantized, fragment_mask)
         return pooled, contextualized, quantized, codes
+
+    def _encode_molecule(self, fingerprints: torch.Tensor) -> dict[str, torch.Tensor]:
+        if self.molecular_representation == "fsq":
+            return self.drug_encoder(fingerprints)
+        # Ablate the entire FSQ bottleneck (including its 3-D projection).
+        # Keep the shared encoder and bounded 128-D downstream interface.
+        pre = self.drug_encoder.pre_transform(fingerprints)
+        continuous = torch.tanh(pre)
+        return {
+            "quantized": continuous,
+            "pre_quantized": pre,
+            "codes": torch.full(
+                (fingerprints.shape[0], 1), -1, dtype=torch.long, device=fingerprints.device
+            ),
+        }
 
     def _encode_protein(self, protein_embedding: torch.Tensor) -> torch.Tensor:
         residue_vectors = self.protein_project(protein_embedding)
@@ -167,7 +186,7 @@ class BricsDualViewJEPA(nn.Module):
         fragment_set_vector, contextualized_fragments, fragment_quantized, fragment_codes = (
             self._encode_fragments(fragment_fingerprints, fragment_mask)
         )
-        whole_encoded = self.drug_encoder(whole_molecule_fingerprint)
+        whole_encoded = self._encode_molecule(whole_molecule_fingerprint)
         whole_molecule_vector = whole_encoded["quantized"].squeeze(1)
 
         # ReLU immediately before cosine makes every coordinate nonnegative, so

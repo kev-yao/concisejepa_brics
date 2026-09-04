@@ -69,8 +69,10 @@ class LitBricsDualViewJEPA(pl.LightningModule):
 
         labels_int = label.to(torch.int)
         metric_key = f"{stage}_metric"
-        auprc = self.auprc_by_stage[metric_key](outputs["binding"], labels_int)
-        auroc = self.auroc_by_stage[metric_key](outputs["binding"], labels_int)
+        auprc = self.auprc_by_stage[metric_key]
+        auroc = self.auroc_by_stage[metric_key]
+        auprc.update(outputs["binding"], labels_int)
+        auroc.update(outputs["binding"], labels_int)
         losses = {
             "loss": loss,
             "loss_dti": loss_dti,
