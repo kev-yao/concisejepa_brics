@@ -48,6 +48,16 @@ def aggregate(values):
     return {"n": len(values), "mean": mean(values), "sd": stdev(values) if len(values) > 1 else None}
 
 
+def paired_difference(left_rows, right_rows, key):
+    left = {r["seed"]: r.get(key) for r in left_rows}
+    right = {r["seed"]: r.get(key) for r in right_rows}
+    seeds = sorted(s for s in left.keys() & right.keys() if left[s] is not None and right[s] is not None)
+    if not seeds:
+        return None
+    differences = [left[s] - right[s] for s in seeds]
+    return {**aggregate(differences), "differences": differences, "seeds": seeds}
+
+
 def summary(root):
     rows = [extract(json.loads(path.read_text())) for path in sorted(root.glob("*/seed_*/audit_summary.json"))]
     stats = {}
@@ -68,12 +78,9 @@ def summary(root):
         ("continuous_joint", "continuous_dti", "val_auprc"),
     ]
     for a, b, key in comparisons:
-        left = {r["seed"]: r.get(key) for r in rows if r["arm"] == a}
-        right = {r["seed"]: r.get(key) for r in rows if r["arm"] == b}
-        seeds = sorted(left.keys() & right.keys())
-        differences = [left[s] - right[s] for s in seeds if left[s] is not None and right[s] is not None]
-        if differences:
-            paired[f"{a} minus {b}: {key}"] = {**aggregate(differences), "differences": differences, "seeds": seeds}
+        value = paired_difference([r for r in rows if r["arm"] == a], [r for r in rows if r["arm"] == b], key)
+        if value:
+            paired[f"{a} minus {b}: {key}"] = value
     result = {
         "completed_runs": len(rows),
         "expected_runs": 18,
@@ -84,6 +91,17 @@ def summary(root):
     study_path = root / "study_manifest.json"
     if study_path.exists():
         result["study"] = json.loads(study_path.read_text())
+        source = (root / result["study"]["source_controls"]).resolve()
+        original = [extract(json.loads(p.read_text())) for p in sorted(source.glob("*/seed_*/audit_summary.json"))]
+        cache_differences = {}
+        for arm in result["study"]["new_training_conditions"]:
+            for key in ("val_auprc", "test_auprc", "unique_val_jepa_mse", "ecfp_all"):
+                value = paired_difference(
+                    [r for r in rows if r["arm"] == arm], [r for r in original if r["arm"] == arm], key
+                )
+                if value:
+                    cache_differences[f"{arm}: {key}"] = value
+        result["paired_matched_minus_legacy_input"] = cache_differences
     (root / "suite_summary.json").write_text(json.dumps(result, indent=2) + "\n")
     if rows:
         fields = ["arm", "seed"] + sorted({k for r in rows for k in r} - {"arm", "seed"})
@@ -130,6 +148,16 @@ def summary(root):
     ]
     for label, v in paired.items():
         lines.append(f"- {label}: {v['mean']:+.5f}, differences {v['differences']} (seeds {v['seeds']}).")
+    if "paired_matched_minus_legacy_input" in result:
+        lines += [
+            "",
+            "## Paired input-cache contrast",
+            "",
+            "Matched count inputs minus legacy binary whole inputs, with separately validation-selected checkpoints. Reused JEPA-only controls are excluded.",
+            "",
+        ]
+        for label, v in result["paired_matched_minus_legacy_input"].items():
+            lines.append(f"- {label}: {v['mean']:+.5f}, differences {v['differences']} (seeds {v['seeds']}).")
     lines += [
         "",
         "## Interpretation limits",
