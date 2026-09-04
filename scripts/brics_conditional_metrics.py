@@ -86,6 +86,37 @@ def run(root):
     (root / "probability_and_novelty_validation_metrics.json").write_text(
         json.dumps(probability_results, indent=2) + "\n"
     )
+    if novelty is not None and "cached_fragment_count" in novelty:
+        reconstruction_results = {}
+        for path in sorted(root.glob("*/seed_*/reconstruction_validation.json")):
+            examples = pd.DataFrame(json.loads(path.read_text())["examples"])
+            joined = examples.merge(
+                novelty[novelty.split == "val"], left_on="input_smiles", right_on="SMILES", validate="one_to_one"
+            )
+            if len(joined) != len(examples):
+                raise ValueError("Fragment table does not cover every reconstruction sample")
+            cohorts = {
+                "all": joined,
+                "multiple_cached_fragments": joined[joined.cached_fragment_count > 1],
+                "single_cached_fragment": joined[joined.cached_fragment_count == 1],
+            }
+            if "has_whole_molecule_fingerprint_token" in joined:
+                for whole in (False, True):
+                    cohorts[f"has_whole_fingerprint_token_{whole}"] = joined[
+                        joined.has_whole_molecule_fingerprint_token == whole
+                    ]
+            reconstruction_results[str(path.parent.relative_to(root))] = {
+                name: {
+                    "n": len(group),
+                    "valid_count": int(group.decoded.notna().sum()),
+                    "ecfp_all": float(group.ecfp.mean()) if len(group) else None,
+                    "retrieval_top10": float((group.retrieval_rank <= 10).mean()) if len(group) else None,
+                }
+                for name, group in cohorts.items()
+            }
+        (root / "reconstruction_fragment_subgroups.json").write_text(
+            json.dumps(reconstruction_results, indent=2) + "\n"
+        )
     print(json.dumps(result, indent=2))
 
 

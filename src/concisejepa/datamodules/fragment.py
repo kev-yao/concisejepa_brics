@@ -164,6 +164,7 @@ class DualViewFragmentDataModule(FragmentDataModule):
         persistent_workers: bool = False,
         validate_metadata: bool = True,
         data_root: str | None = None,
+        require_count_values: bool = False,
     ) -> None:
         if validate_metadata:
             _validate_fingerprint_metadata(
@@ -193,6 +194,8 @@ class DualViewFragmentDataModule(FragmentDataModule):
         )
         if self.morgan_embeddings is None:
             raise RuntimeError("Dual-view training requires whole-molecule Morgan fingerprints.")
+        if require_count_values:
+            validate_count_fingerprint_values(self.morgan_embeddings)
         self.valid_smiles &= set(self.morgan_embeddings)
         self.collator = DualViewFragmentCollator(
             protein_embeddings=self.protein_embeddings,
@@ -200,6 +203,15 @@ class DualViewFragmentDataModule(FragmentDataModule):
             smiles_embeddings=self.smiles_embeddings,
             fallback_morgan=self.morgan_embeddings,
         )
+
+
+def validate_count_fingerprint_values(cache: dict[str, torch.Tensor]) -> None:
+    """Catch binary caches mislabeled as counts, without changing legacy defaults."""
+    values = torch.stack([v.reshape(-1) for v in cache.values()])
+    if not bool(torch.isfinite(values).all() and (values >= 0).all() and (values == values.round()).all()):
+        raise ValueError("Expected finite, nonnegative integer count fingerprints")
+    if not bool((values > 1).any()):
+        raise ValueError("Count fingerprints requested, but every cached value is binary; verify cache provenance")
 
 
 __all__ = [

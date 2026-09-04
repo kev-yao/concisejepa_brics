@@ -112,6 +112,10 @@ fingerprints. These controls do not change the training conditions.
 It saves `fragment_input_groups.csv` so binding scores can be stratified by whether
 the fragment multiset appeared in training, alongside receptor-prior scores on those
 same subsets. Canonical-molecule disjointness alone does not imply novel model inputs.
+With `--whole-cache`, it additionally checks whether any fragment token has the exact
+whole-molecule fingerprint, and saves cached token counts. The conditional report
+stratifies reconstruction into single/multiple-fragment and whole-token-present/absent
+subsets; successful prediction from an intact-molecule token is not evidence of assembly.
 
 `brics_conditional_metrics.py` computes validation ranking metrics within proteins
 and within molecules, restricted to groups with at least five rows and both labels.
@@ -128,9 +132,44 @@ seed contrasts. `plot_brics_audit.py` exports comparison plots and the first six
 random reconstruction examples from each seed-42 sample, without cherry-picking.
 `launchers/brics_audit_report.sbatch` can run these after the training array finishes.
 
-Validation: 31 relevant tests pass, including pooled-metric/reset checks, canonical
+Validation: 33 relevant tests pass, including pooled-metric/reset checks, canonical
 split integrity, continuous gradient isolation, unique-molecule validation weighting,
 and existing training-refactor parity checks. The older `test_quantizers.py` suite
 has six failures and two errors concerning historical residual-branch expectations;
 the same failures were reproduced in an untouched checkout of the preceding commit.
 One broad-suite temporary-directory cleanup error disappeared with local `/tmp`.
+
+## Matched-fingerprint follow-up
+
+During the audit, numerical inspection found that the legacy whole-molecule cache
+is binary despite metadata labeling it `ecfp-count:4`. Fragment inputs are actual
+counts. `prepare_brics_count_fingerprints.py` generated a separate count cache from
+the same raw SMILES, using the existing count generator. For all 7,006 molecules,
+binarizing the new count fingerprint exactly reproduces the legacy fingerprint.
+Every regenerated molecule has at least one count above one. The new cache and its
+hash audit are under `scratch/datasets/cold_molecule_v1`; no source cache or metadata
+was changed. The legacy-input suite remains useful but is explicitly conditional
+on this mismatch.
+
+Follow-up: `matched_{fsq,continuous}_{joint,dti}` repeats the four binding-trained
+conditions with the same splits, three seeds, 30 epochs, objectives, and checkpoint
+rules. Only the whole-molecule cache changes. The matched data config enables a
+value-level count check; legacy defaults are preserved. This is an adaptive diagnostic
+follow-up prompted by a cache audit, not part of the initial fixed six-arm comparison.
+
+The six JEPA-only runs are reused: whole inputs do not affect their active objective.
+A test checks bit-exact three-step AdamW parameter/loss trajectories under binary vs
+count whole inputs for both representation choices. Their unused DTI diagnostics are
+not interpreted. A `study_manifest.json` records reuse explicitly; there are 12 new
+training runs, not 18 independent reruns. Total study: 30 trained runs.
+
+```bash
+# After the legacy-input suite, retaining a two-GPU concurrency limit:
+export AUDIT_ROOT="$PWD/scratch/audits/cold_molecule_matched_count_v1"
+sbatch --array=0-1,4-5%2 --time=00:25:00 \
+  --dependency=afterok:LEGACY_ARRAY_ID \
+  launchers/brics_audit.sbatch --config-prefix matched
+```
+
+Reconstruction subset diagnostics use the regenerated count cache as their structural
+whole-token reference for both suites. This does not change what either model sees.

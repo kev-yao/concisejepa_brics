@@ -1,4 +1,5 @@
 import importlib.util
+import copy
 import unittest
 from types import SimpleNamespace
 from pathlib import Path
@@ -36,6 +37,46 @@ class FixedPredictions(nn.Module):
 
 
 class AuditTests(unittest.TestCase):
+    def test_matched_configs_and_count_value_guard(self):
+        from hydra import compose, initialize_config_dir
+        from concisejepa.datamodules.fragment import validate_count_fingerprint_values
+
+        with initialize_config_dir(version_base=None, config_dir=str(Path(__file__).resolve().parents[1] / "configs")):
+            for arm in ("fsq_joint", "continuous_joint", "fsq_dti", "continuous_dti"):
+                cfg = compose(config_name="config", overrides=[f"experiment=matched_{arm}"])
+                self.assertTrue(cfg.data.require_count_values)
+                self.assertEqual(cfg.model.molecular_representation, arm.split("_")[0])
+        validate_count_fingerprint_values({"CC": torch.tensor([0.0, 1.0, 2.0])})
+        for values in ([0.0, 1.0], [0.0, -1.0, 2.0], [0.0, float("nan"), 2.0], [0.0, 1.5, 2.0]):
+            with self.assertRaises(ValueError):
+                validate_count_fingerprint_values({"CC": torch.tensor(values)})
+
+    def test_jepa_only_optimizer_trajectory_does_not_depend_on_whole_fingerprint(self):
+        for representation in ("fsq", "continuous"):
+            cfg = small_config()
+            cfg.model.molecular_representation = representation
+            cfg.dual_view_loss.dti_weight = 0
+            cfg.dual_view_loss.alignment_weight = 0
+            first = instantiate(cfg.task, experiment_config=cfg, model=instantiate(cfg.model))
+            second = copy.deepcopy(first)
+            batches = [list(synthetic_batch()), list(synthetic_batch())]
+            batches[0][3] = batches[0][3].abs().mul(3).floor()
+            batches[1][3] = (batches[0][3] > 0).float()
+            optimizers = [t.configure_optimizers() for t in (first, second)]
+            for seed in (10, 11, 12):
+                losses = []
+                for task, optimizer, batch in zip((first, second), optimizers, batches):
+                    task.train()
+                    torch.manual_seed(seed)
+                    optimizer.zero_grad(set_to_none=True)
+                    loss = task._forward_losses_metrics(batch, "train")[0]
+                    loss.backward()
+                    losses.append(loss.detach())
+                    optimizer.step()
+                torch.testing.assert_close(*losses, rtol=0, atol=0)
+                for name, value in first.model.state_dict().items():
+                    torch.testing.assert_close(value, second.model.state_dict()[name], rtol=0, atol=0)
+
     def test_conditional_metrics_and_probability_boundaries(self):
         mod = load_script("brics_conditional_metrics")
         frame = pd.DataFrame(

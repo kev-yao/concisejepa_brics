@@ -16,6 +16,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--data", type=Path, required=True)
     parser.add_argument("--cache", type=Path, required=True)
+    parser.add_argument("--whole-cache", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     torch.set_num_threads(2)
@@ -25,6 +26,7 @@ def main():
     counts = train.groupby("Target Sequence").Label.agg(["sum", "count"])
     smoothed = (counts["sum"] + 10 * prior) / (counts["count"] + 10)
     result = {"training_prevalence": prior, "protein_prior_pseudocount": 10, "splits": {}}
+    result["whole_fingerprint_reference"] = str(args.whole_cache.resolve()) if args.whole_cache else None
     for split in ("val", "test"):
         df = frames[split]
         pred = df["Target Sequence"].map(smoothed).fillna(prior)
@@ -37,6 +39,7 @@ def main():
             },
         }
     cache = torch.load(args.cache, map_location="cpu", weights_only=False)
+    whole_cache = torch.load(args.whole_cache, map_location="cpu", weights_only=False) if args.whole_cache else None
     unique = pd.concat(frames.values()).drop_duplicates("canonical_smiles")
     buckets = defaultdict(list)
     signatures = {}
@@ -83,11 +86,28 @@ def main():
         result["splits"][split]["protein_prior_by_fragment_input_novelty"] = groups
     args.output.parent.mkdir(parents=True, exist_ok=True)
     novelty_rows = []
+    result["molecule_sampling_and_fragments"] = {}
     for split, frame in frames.items():
         molecules = frame.drop_duplicates("canonical_smiles")[["SMILES", "canonical_smiles"]].copy()
         molecules["split"] = split
         molecules["fragment_input_sha256"] = molecules.canonical_smiles.map(signatures)
         molecules["fragment_input_seen_in_train"] = molecules.canonical_smiles.isin(shared_with_train)
+        molecules["cached_fragment_count"] = molecules.SMILES.map(lambda s: len(cache[s]))
+        if whole_cache is not None:
+            molecules["has_whole_molecule_fingerprint_token"] = molecules.SMILES.map(
+                lambda s: bool((cache[s] == whole_cache[s].reshape(1, -1)).all(1).any())
+            )
+        multiplicity = frame.canonical_smiles.value_counts()
+        result["molecule_sampling_and_fragments"][split] = {
+            "median_pairs_per_molecule": float(multiplicity.median()),
+            "top10_molecules_row_count": int(multiplicity.head(10).sum()),
+            "fragment_count_histogram": {
+                str(k): int(v) for k, v in molecules.cached_fragment_count.value_counts().sort_index().items()
+            },
+            "has_whole_molecule_fingerprint_token": int(molecules.has_whole_molecule_fingerprint_token.sum())
+            if whole_cache is not None
+            else None,
+        }
         novelty_rows.append(molecules)
     pd.concat(novelty_rows).to_csv(args.output.parent / "fragment_input_groups.csv", index=False)
     args.output.write_text(json.dumps(result, indent=2) + "\n")

@@ -1,0 +1,8 @@
+# @package _global_
+defaults:
+  - audit_fsq_dti
+  - override /data: brics_dual_view_matched_count
+  - _self_
+
+run:
+  name_prefix: matched-fsq-dti

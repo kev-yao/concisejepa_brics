@@ -1,0 +1,6 @@
+defaults:
+  - brics_dual_view_audit
+  - _self_
+
+morgan_embeddings_path: ${oc.env:CONCISEJEPA_AUDIT_DATA_ROOT}/morgan_ecfp_count4_2048.pt
+require_count_values: true

@@ -10,6 +10,7 @@ before changing training code or adding an experiment.
 3. [Development](development.md) — invariants, tests, storage rules, and the change checklist.
 4. [Migration notes](migration-notes.md) — what changed in the Hydra/BRICS refactor and what remains transitional.
 5. [Dual-view BRICS](dual-view-brics.md) — the shared-codebook Set Transformer experiment and losses.
+6. [BRICS audit protocol](brics-audit-experiments.md) — cold-molecule splits, controlled ablations, numerical cache checks, and evaluation rules.
 
 ## Quick reference
 
@@ -33,6 +34,13 @@ Supported named experiments:
 | `brics_debug` | BRICS mean model with two train/validation/test batches |
 | `brics_dual_view` | Shared fragment/whole codebook, Set Transformer, cosine-probability DTI |
 | `brics_dual_view_debug` | Two-batch dual-view BRICS smoke run |
+| `audit_{fsq,continuous}_{joint,jepa,dti}` | Six controlled conditions on the cleaned cold-molecule split, with legacy whole inputs |
+| `matched_{fsq,continuous}_{joint,dti}` | Binding-trained conditions with verified count fingerprints for both molecular views |
+
+Audit warning: the inherited BindingDB whole-molecule cache contains binary values
+despite count metadata. New matched-count experiments use a separate verified cache;
+do not relabel or overwrite the shared source. See the audit protocol before choosing
+an experiment for new research.
 
 Typical launches:
 

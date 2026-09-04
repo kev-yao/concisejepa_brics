@@ -22,14 +22,16 @@ def main():
     if not rows:
         return
     arms = [a for a in data["per_arm"] if any(r["arm"] == a for r in rows)]
-    fig, axes = plt.subplots(1, 3, figsize=(15, 5), layout="constrained")
+    fig, axes = plt.subplots(2, 2, figsize=(13, 10), layout="constrained")
+    axes = axes.flatten()
     for ax, key, title in zip(
         axes,
-        ["val_auprc", "unique_val_jepa_mse", "ecfp_all"],
+        ["val_auprc", "unique_val_jepa_mse", "ecfp_all", "retrieval_top10"],
         [
             "Binding: pooled validation AP",
             "Reconstruction: unique validation MSE",
             "Reconstruction: ECFP Tanimoto (all decodes)",
+            "Latent identity: top-10 retrieval / 1,050 candidates",
         ],
     ):
         labels = []
@@ -54,6 +56,22 @@ def main():
         b = json.loads(baseline.read_text())
         axes[0].axhline(b["splits"]["val"]["protein_only_prior"]["auprc"], ls="--", color="red", label="Protein prior")
         axes[0].legend()
+    baseline_mse = next((r["mean_baseline_mse"] for r in rows if "mean_baseline_mse" in r), None)
+    if baseline_mse is not None:
+        axes[1].axhline(baseline_mse, ls="--", color="red", label="Training mean target")
+        axes[1].legend()
+    recon_path = next(iter(sorted(args.root.glob("*/seed_42/reconstruction_validation.json"))), None)
+    if recon_path is not None:
+        recon = json.loads(recon_path.read_text())
+        axes[2].axhline(
+            recon["target_latent_control"]["ecfp"]["all"]["mean"],
+            ls="--",
+            color="red",
+            label="True COATI latent control",
+        )
+        axes[2].legend()
+        axes[3].axhline(10 / recon["retrieval_catalog_n"], ls="--", color="red", label="Random rank baseline")
+        axes[3].legend()
     fig.suptitle("Fixed cold-molecule split; each dot is a training seed")
     fig.savefig(args.root / "comparison.png", dpi=180)
     fig.savefig(args.root / "comparison.pdf")

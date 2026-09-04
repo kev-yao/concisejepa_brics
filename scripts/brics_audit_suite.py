@@ -254,7 +254,9 @@ def run(args):
         if run_dir.exists():
             raise FileExistsError(f"Incomplete run exists; inspect before retrying: {run_dir}")
         with initialize_config_dir(version_base=None, config_dir=str(ROOT / "configs")):
-            cfg = compose(config_name="config", overrides=[f"experiment=audit_{args.arm}", f"seed={seed}"])
+            cfg = compose(
+                config_name="config", overrides=[f"experiment={args.config_prefix}_{args.arm}", f"seed={seed}"]
+            )
         with open_dict(cfg):
             cfg.runtime.run_id = f"{args.arm}-{seed}"
             cfg.runtime.run_name = cfg.runtime.run_id
@@ -288,6 +290,7 @@ def run(args):
         trainer.fit(task, datamodule=dm)
         summary = {
             "arm": args.arm,
+            "config_prefix": args.config_prefix,
             "seed": seed,
             "epochs": args.epochs,
             "initial": initial,
@@ -332,6 +335,7 @@ def run(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--arm", choices=ARMS, required=True)
+    parser.add_argument("--config-prefix", choices=["audit", "matched"], default="audit")
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--seeds", type=int, nargs="+", default=[42, 43, 44])
     parser.add_argument("--epochs", type=int, default=30)

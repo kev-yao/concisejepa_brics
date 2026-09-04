@@ -81,6 +81,9 @@ def summary(root):
         "paired_seed_differences": paired,
         "runs": rows,
     }
+    study_path = root / "study_manifest.json"
+    if study_path.exists():
+        result["study"] = json.loads(study_path.read_text())
     (root / "suite_summary.json").write_text(json.dumps(result, indent=2) + "\n")
     if rows:
         fields = ["arm", "seed"] + sorted({k for r in rows for k in r} - {"arm", "seed"})
@@ -99,6 +102,7 @@ def summary(root):
         "# BRICS cold-molecule experiment results",
         "",
         f"Completed {len(rows)}/18 fixed runs. Mean ± sample SD across training seeds, not a confidence interval.",
+        result.get("study", {}).get("note", ""),
         "",
         "All DTI scores are pooled over rows. Checkpoints selected by validation; test scores are not used for model selection.",
         "Binding columns use the best-DTI checkpoint; reconstruction columns use the best-JEPA checkpoint. These can be different epochs, so the table does not imply one checkpoint attains both optima. The CSV includes binding AP at the reconstruction-selected checkpoint.",
