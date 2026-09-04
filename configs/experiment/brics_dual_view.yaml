@@ -9,6 +9,10 @@ defaults:
 run:
   name_prefix: brics-dual-view
 
+# Never silently fall back to CPU for a scheduled training run.
+trainer:
+  accelerator: gpu
+
 dual_view_loss:
   dti_weight: 1.0
   jepa_weight: 1.0

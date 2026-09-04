@@ -71,6 +71,7 @@ class BricsDualViewTests(unittest.TestCase):
         self.assertEqual(cfg.dual_view_loss.jepa_weight, 1.0)
         self.assertEqual(cfg.dual_view_loss.alignment_weight, 1.0)
         self.assertEqual(cfg.trainer.limit_train_batches, 2)
+        self.assertEqual(cfg.trainer.accelerator, "gpu")
 
     def test_forward_uses_one_codebook_and_returns_cosine_probabilities(self):
         cfg = small_config()

@@ -54,6 +54,9 @@ parameters, and all losses backpropagate through it.
 The protein representation is independent of both molecule views. There is no drug-to-protein or
 protein-to-drug cross-attention.
 
+Both named experiments require a CUDA accelerator. This prevents a scheduled GPU run from silently
+falling back to CPU when an allocated device is unhealthy.
+
 ## DTI probabilities
 
 All three DTI-space vectors pass through ReLU before normalization. Their coordinates are
