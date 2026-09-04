@@ -21,7 +21,13 @@
 set -eo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="${CONCISEJEPA_PROJECT_ROOT:-$(cd "$SCRIPT_DIR/.." && pwd)}"
+if [[ -n "${CONCISEJEPA_PROJECT_ROOT:-}" ]]; then
+    PROJECT_ROOT="$CONCISEJEPA_PROJECT_ROOT"
+elif [[ -n "${SLURM_SUBMIT_DIR:-}" ]]; then
+    PROJECT_ROOT="$SLURM_SUBMIT_DIR"
+else
+    PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+fi
 EXPERIMENT="${EXPERIMENT:-baseline}"
 RUN_ROOT="${CONCISEJEPA_RUN_ROOT:-$PROJECT_ROOT/scratch/runs}"
 
