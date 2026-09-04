@@ -69,6 +69,8 @@ be a follow-up if warranted. FSQ retains the original forward path and parameter
 - Initial and trained loss-gradient norms/cosines on the last shared encoder projection,
   on a fixed sample of training pairs, with dropout disabled for the diagnostic.
   These describe that parameter block, not all gradient interactions.
+  Trained probes use the binding-selected checkpoint for binding-trained conditions
+  and the reconstruction-selected checkpoint for JEPA-only conditions.
 - Leave-one-fragment-out sensitivity on up to 20 validation molecules having both
   positive and negative receptor examples. This measures receptor-dependent model
   sensitivity, not causal binding contributions. Cached token indices cannot be assumed
@@ -161,8 +163,8 @@ The six JEPA-only runs are reused: whole inputs do not affect their active objec
 A test checks bit-exact three-step AdamW parameter/loss trajectories under binary vs
 count whole inputs for both representation choices. Their unused DTI diagnostics are
 not interpreted. A `study_manifest.json` records reuse explicitly; there are 12 new
-training runs, not 18 independent reruns. Planned total study: 30 trained runs;
-the results document distinguishes completed and queued work.
+training runs, not 18 independent reruns. All 30 distinct training runs completed;
+the results document reports both comparisons and their limitations.
 
 ```bash
 # After the legacy-input suite, retaining a two-GPU concurrency limit:
