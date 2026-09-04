@@ -30,6 +30,13 @@ if [[ -n "${CONCISEJEPA_ENV:-}" ]]; then
     micromamba activate "$CONCISEJEPA_ENV"
 fi
 
+# Some compute nodes prefer the system libstdc++ unless the activated
+# environment is placed first explicitly. SciPy and PyTorch in the project
+# environment require the newer CXXABI provided there.
+if [[ -n "${CONDA_PREFIX:-}" ]]; then
+    export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:${LD_LIBRARY_PATH:-}"
+fi
+
 if ! python -c "import hydra, torch, pytorch_lightning"; then
     echo "ERROR: activate the project environment or set CONCISEJEPA_ENV." >&2
     exit 1
