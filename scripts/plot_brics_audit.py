@@ -45,7 +45,12 @@ def main():
                 continue
             x = len(labels)
             labels.append(arm)
-            ax.scatter([x + (i - (len(values) - 1) / 2) * 0.1 for i in range(len(values))], values, s=45)
+            ax.scatter(
+                [x + (i - (len(values) - 1) / 2) * 0.1 for i in range(len(values))],
+                values,
+                s=45,
+                color=f"C{arms.index(arm)}",
+            )
             ax.plot([x - 0.22, x + 0.22], [sum(values) / len(values)] * 2, color="black", linewidth=2)
         ax.set_xticks(range(len(labels)), labels, rotation=50, ha="right")
         ax.set_title(title, fontsize=11)
@@ -72,7 +77,12 @@ def main():
         axes[2].legend()
         axes[3].axhline(10 / recon["retrieval_catalog_n"], ls="--", color="red", label="Random rank baseline")
         axes[3].legend()
-    fig.suptitle("Fixed cold-molecule split; each dot is a training seed")
+    scope = (
+        "Matched count inputs (JEPA-only controls reused)" if "study" in data else "Legacy mixed count/binary inputs"
+    )
+    fig.suptitle(
+        f"{scope}; {data['completed_runs']}/18 conditions complete\nFixed cold-molecule split; each dot is a training seed"
+    )
     fig.savefig(args.root / "comparison.png", dpi=180)
     fig.savefig(args.root / "comparison.pdf")
     plt.close(fig)
