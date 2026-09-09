@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 1,
+  "id": "c04bd24f-6b9b-4939-a61a-1b1841f3f30e",
+  "title": "[prompt redacted]",
+  "objective": "[prompt redacted]",
+  "status": "completed",
+  "createdAt": "2026-09-08T19:03:17.170Z",
+  "updatedAt": "2026-09-08T19:18:29.403Z",
+  "runs": [
+    {
+      "runId": "f5b464c1-d659-4c68-80b0-8867160f4e2e",
+      "mode": "workflow",
+      "asyncDir": "/hpc/group/singhlab/user/me196/tmp/pi-subagents-uid-1543297/async-subagent-runs/f5b464c1-d659-4c68-80b0-8867160f4e2e",
+      "status": "complete",
+      "startedAt": "2026-09-08T19:03:17.226Z",
+      "completedAt": "2026-09-08T19:07:07.515Z"
+    }
+  ],
+  "workflowChildren": [
+    {
+      "workflowRunId": "f5b464c1-d659-4c68-80b0-8867160f4e2e",
+      "key": "binding-objective",
+      "status": "completed",
+      "startedAt": "2026-09-08T19:03:17.350Z",
+      "updatedAt": "2026-09-08T19:07:07.437Z",
+      "artifactPaths": [
+        "/hpc/home/me196/.pi/agent/sessions/--hpc-group-singhlab-user-me196-projects-obsidian-runs-concisejepa_brics--/2026-09-08T19-00-22-834Z_01a08264-8cb2-7045-8da3-2bf40166ecdc/2a0dc409/run-0/session.jsonl"
+      ],
+      "runId": "2a0dc409",
+      "agent": "reviewer",
+      "completedAt": "2026-09-08T19:07:07.437Z",
+      "sessionPath": "/hpc/home/me196/.pi/agent/sessions/--hpc-group-singhlab-user-me196-projects-obsidian-runs-concisejepa_brics--/2026-09-08T19-00-22-834Z_01a08264-8cb2-7045-8da3-2bf40166ecdc/2a0dc409/run-0/session.jsonl",
+      "heartbeat": {
+        "updatedAt": "2026-09-08T19:07:07.437Z",
+        "status": "completed"
+      }
+    },
+    {
+      "workflowRunId": "f5b464c1-d659-4c68-80b0-8867160f4e2e",
+      "key": "collapse-evidence",
+      "status": "completed",
+      "startedAt": "2026-09-08T19:03:17.793Z",
+      "updatedAt": "2026-09-08T19:05:49.662Z",
+      "artifactPaths": [
+        "/hpc/home/me196/.pi/agent/sessions/--hpc-group-singhlab-user-me196-projects-obsidian-runs-concisejepa_brics--/2026-09-08T19-00-22-834Z_01a08264-8cb2-7045-8da3-2bf40166ecdc/a5708c31/run-0/session.jsonl"
+      ],
+      "runId": "a5708c31",
+      "agent": "scout",
+      "completedAt": "2026-09-08T19:05:49.661Z",
+      "sessionPath": "/hpc/home/me196/.pi/agent/sessions/--hpc-group-singhlab-user-me196-projects-obsidian-runs-concisejepa_brics--/2026-09-08T19-00-22-834Z_01a08264-8cb2-7045-8da3-2bf40166ecdc/a5708c31/run-0/session.jsonl",
+      "heartbeat": {
+        "updatedAt": "2026-09-08T19:05:49.662Z",
+        "status": "completed"
+      }
+    }
+  ],
+  "decisions": [],
+  "artifacts": [
+    {
+      "kind": "status",
+      "path": "/hpc/group/singhlab/user/me196/tmp/pi-subagents-uid-1543297/async-subagent-runs/f5b464c1-d659-4c68-80b0-8867160f4e2e/status.json"
+    },
+    {
+      "kind": "other",
+      "path": "/hpc/group/singhlab/user/me196/tmp/pi-subagents-uid-1543297/async-subagent-runs/f5b464c1-d659-4c68-80b0-8867160f4e2e/events.jsonl",
+      "description": "Lifecycle events"
+    },
+    {
+      "kind": "output",
+      "path": "/hpc/home/me196/.pi/agent/sessions/--hpc-group-singhlab-user-me196-projects-obsidian-runs-concisejepa_brics--/2026-09-08T19-00-22-834Z_01a08264-8cb2-7045-8da3-2bf40166ecdc/2a0dc409/run-0/session.jsonl"
+    },
+    {
+      "kind": "output",
+      "path": "/hpc/home/me196/.pi/agent/sessions/--hpc-group-singhlab-user-me196-projects-obsidian-runs-concisejepa_brics--/2026-09-08T19-00-22-834Z_01a08264-8cb2-7045-8da3-2bf40166ecdc/a5708c31/run-0/session.jsonl"
+    }
+  ],
+  "receipts": [],
+  "cwd": "/hpc/group/singhlab/user/me196/projects/obsidian/runs/concisejepa_brics",
+  "ownerSessionId": "/hpc/home/me196/.pi/agent/sessions/--hpc-group-singhlab-user-me196-projects-obsidian-runs-concisejepa_brics--/2026-09-08T19-00-22-834Z_01a08264-8cb2-7045-8da3-2bf40166ecdc.jsonl",
+  "summary": "Read-only fragment BindingDB architectural audit completed. H200 reproduced historical 1073-code artifact, identified 3508 distinct inputs and severe 4/12/8-code fresh initialization; current BindingDB seed42 LayerNorm-only probe expanded 4 to 924 codes, not trained efficacy. Verified same-receptor positive-mask zero-gradient bug, context-pooling pair semantics, F2R mean equivalence. Existing 18 QA checks and 5 integration tests passed. No source changes/retraining; exact user's run remains unspecified. Full report /hpc/group/singhlab/user/me196/tmp/fragment-audit-20260908-150845/AUDIT.md; visual report /hpc/group/singhlab/user/me196/tmp/architecture-review-20260908-150845.html; probes and JSON colocated with AUDIT.md."
+}

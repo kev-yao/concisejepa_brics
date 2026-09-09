@@ -49,7 +49,9 @@ class ConciseFragment(nn.Module):
           → d_project [B, 1, proj_dim]
           → (same attention + pairwise scoring as Concise)
 
-    Protein path: unchanged from Concise.
+    Protein path: unchanged from Concise. With protein-conditioned pooling,
+    each pair (i, j) pools drug i's shared fragment embeddings using protein j.
+    Returned molecule embeddings and attribution weights remain aligned (i, i).
     """
 
     def __init__(
@@ -122,9 +124,9 @@ class ConciseFragment(nn.Module):
         self,
         frag_fps: torch.Tensor,   # [B, F, ligand_dim]
         frag_mask: torch.Tensor,  # [B, F] bool — True = valid fragment
-        r_emb_raw: torch.Tensor,  # [B, 50, residue_dim] — only used by CrossAttentionPool
+        r_emb_raw: torch.Tensor,  # [B, R, residue_dim] — used by context-conditioned poolers
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """Returns mol_emb [B, drug_dim], frag_codes [B, F, n_factors], and the
+        """Returns aligned mol_emb [B, drug_dim], frag_codes [B, F, n_factors], and the
         UNPOOLED per-fragment embeddings frag_embs [B, F, drug_dim] (needed by
         multi-token predictors that attend over fragments directly instead of a
         single pooled vector — see ConciseJEPAFragmentXAttn)."""
@@ -151,25 +153,70 @@ class ConciseFragment(nn.Module):
         return (r_emb * r_emb_wt).sum(dim=1)
 
     # ------------------------------------------------------------------
-    # Pairwise scoring (copied verbatim from Concise)
+    # Pairwise scoring
     # ------------------------------------------------------------------
+
+    def _project_drug_embeddings(self, mol_emb: torch.Tensor) -> torch.Tensor:
+        d_emb = self.d_project(mol_emb.unsqueeze(1))
+        d_d_mixed, _ = self.d_to_d_attention(rearrange(d_emb, "b n k -> n b k"))
+        return d_emb + rearrange(d_d_mixed, "n b k -> b n k")
 
     def _score_aligned_embeddings(self, d_pair: torch.Tensor, r_pair: torch.Tensor) -> torch.Tensor:
         d_pair = rearrange(d_pair, "b n k -> b (n k)")
         return self.final(torch.cat([d_pair, r_pair], dim=-1)).squeeze(-1)
 
-    def _attend_and_score_pair_chunk(self, d_pair, r_pair, r_pooled_pair):
+    def _score_fragment_aligned_embeddings(self, d_pair, r_pair):
+        """Opt-in primary readout hook; whole scoring keeps the original scorer."""
+        return self._score_aligned_embeddings(d_pair, r_pair)
+
+    def _attend_and_score_pair_chunk(self, d_pair, r_pair, r_pooled_pair, fragment_view=True):
         d_r_mixed, _ = self.r_to_d_attention(d_pair, r_pair, r_pair, need_weights=False)
         d_pair = d_pair + d_r_mixed
-        scores = self._score_aligned_embeddings(d_pair, r_pooled_pair)
+        scorer = self._score_fragment_aligned_embeddings if fragment_view else self._score_aligned_embeddings
+        scores = scorer(d_pair, r_pooled_pair)
         return scores, d_pair
+
+    def _condition_and_score_pair_chunk(
+        self, frag_embs, frag_mask, r_emb_raw, r_emb, r_pooled, drug_indices, protein_indices
+    ):
+        # Gather inside the checkpoint so backward retains the shared tensors and
+        # indices, not a separate expanded raw-protein/fragment tensor per chunk.
+        # Attribution describes the aligned batch, not the last pair chunk.
+        # Restore it even when non-reentrant checkpoint recomputation stops early.
+        tracks_weights = hasattr(self.pooling_layer, "last_weights")
+        aligned_weights = getattr(self.pooling_layer, "last_weights", None)
+        try:
+            mol_emb = self.pooling_layer(
+                frag_embs.index_select(0, drug_indices),
+                frag_mask.index_select(0, drug_indices),
+                r_emb_raw.index_select(0, protein_indices),
+            )
+        finally:
+            if tracks_weights:
+                self.pooling_layer.last_weights = aligned_weights
+        d_pair = self._project_drug_embeddings(mol_emb)
+        return self._attend_and_score_pair_chunk(
+            d_pair,
+            r_emb.index_select(0, protein_indices),
+            r_pooled.index_select(0, protein_indices),
+        )
 
     def _pairwise_drug_to_protein_scores(
         self,
         d_emb: torch.Tensor,    # [B, 1, proj_dim]
         r_emb: torch.Tensor,    # [B, 50, proj_dim]
         r_pooled: torch.Tensor, # [B, proj_dim]
+        *,
+        frag_embs: torch.Tensor | None = None,
+        frag_mask: torch.Tensor | None = None,
+        r_emb_raw: torch.Tensor | None = None,
+        condition_on_fragments: bool | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor]:
+        # Whole-molecule scoring bypasses fragment pooling, but shares the same
+        # pairwise attention/scorer and the actual candidate protein for [i, j].
+        conditioned = self.pooling_needs_context if condition_on_fragments is None else condition_on_fragments
+        if conditioned and any(x is None for x in (frag_embs, frag_mask, r_emb_raw)):
+            raise ValueError("Protein-conditioned pair scoring requires fragments, mask, and raw proteins")
         batch_size, drug_tokens, proj_dim = d_emb.shape
         total_pairs = batch_size * batch_size
         chunk_size = min(int(self.pairwise_attention_chunk_size), total_pairs)
@@ -182,18 +229,24 @@ class ConciseFragment(nn.Module):
             drug_indices = torch.div(pair_indices, batch_size, rounding_mode="floor")
             protein_indices = pair_indices.remainder(batch_size)
 
-            d_pair = d_emb.index_select(0, drug_indices)
-            r_pair = r_emb.index_select(0, protein_indices)
-            r_pooled_pair = r_pooled.index_select(0, protein_indices)
-
-            if self.use_pairwise_attention_checkpoint and torch.is_grad_enabled():
-                scores, d_pair = checkpoint(
-                    self._attend_and_score_pair_chunk,
-                    d_pair, r_pair, r_pooled_pair,
-                    use_reentrant=False,
+            if conditioned:
+                score_chunk = self._condition_and_score_pair_chunk
+                pair_inputs = (
+                    frag_embs, frag_mask, r_emb_raw, r_emb, r_pooled, drug_indices, protein_indices
                 )
             else:
-                scores, d_pair = self._attend_and_score_pair_chunk(d_pair, r_pair, r_pooled_pair)
+                score_chunk = self._attend_and_score_pair_chunk
+                pair_inputs = (
+                    d_emb.index_select(0, drug_indices),
+                    r_emb.index_select(0, protein_indices),
+                    r_pooled.index_select(0, protein_indices),
+                    condition_on_fragments is not False,
+                )
+
+            if self.use_pairwise_attention_checkpoint and torch.is_grad_enabled():
+                scores, d_pair = checkpoint(score_chunk, *pair_inputs, use_reentrant=False)
+            else:
+                scores, d_pair = score_chunk(*pair_inputs)
 
             pairwise_binding.reshape(-1)[start:end] = scores
 
@@ -212,15 +265,13 @@ class ConciseFragment(nn.Module):
         frag_fps: torch.Tensor,   # [B, F, ligand_dim]
         frag_mask: torch.Tensor,  # [B, F] bool
         r_emb: torch.Tensor,      # [B, 50, residue_dim]
+        whole_molecule_fingerprint: torch.Tensor | None = None,
     ) -> dict[str, torch.Tensor]:
         mol_emb, frag_codes, frag_embs = self._encode_fragments(frag_fps, frag_mask, r_emb)
 
-        # Drug path: [B, drug_dim] → [B, 1, proj_dim]
-        d_emb = self.d_project(mol_emb.unsqueeze(1))  # [B, 1, proj_dim]
-
-        # Drug self-attention (with 1 token, no-op but preserves architecture shape)
-        d_d_mixed, _ = self.d_to_d_attention(rearrange(d_emb, "b n k -> n b k"))
-        d_emb = d_emb + rearrange(d_d_mixed, "n b k -> b n k")
+        # Reusable drug path for protein-independent pooling. Context-conditioned
+        # pair chunks below must instead pool/project using the scored protein.
+        d_emb = self._project_drug_embeddings(mol_emb)
 
         # Protein path: project + self-attention
         r_emb_proj = self.r_project(r_emb)  # [B, 50, proj_dim]
@@ -228,12 +279,15 @@ class ConciseFragment(nn.Module):
         r_emb_proj = r_emb_proj + rearrange(r_r_mixed, "n b k -> b n k")
 
         r_pooled = self._pool_residue_embeddings(r_emb_proj)   # [B, proj_dim]
-        pairwise_binding, d_emb = self._pairwise_drug_to_protein_scores(d_emb, r_emb_proj, r_pooled)
+        pairwise_binding, d_emb = self._pairwise_drug_to_protein_scores(
+            d_emb, r_emb_proj, r_pooled,
+            frag_embs=frag_embs, frag_mask=frag_mask, r_emb_raw=r_emb,
+        )
         binding = pairwise_binding.diagonal()
 
         d_emb_flat = rearrange(d_emb, "b n k -> b (n k)")  # [B, proj_dim]
 
-        return {
+        outputs = {
             "d_emb": d_emb_flat,          # [B, proj_dim]
             "r_emb": r_pooled,            # [B, proj_dim]
             "binding": binding,           # [B]
@@ -245,6 +299,18 @@ class ConciseFragment(nn.Module):
             "frag_embs": frag_embs,       # [B, F, drug_dim] — UNPOOLED per-fragment embeddings,
                                           # for multi-token predictors (ConciseJEPAFragmentXAttn).
         }
+        if whole_molecule_fingerprint is not None:
+            whole = self.d_encoder(whole_molecule_fingerprint)
+            whole_d = self._project_drug_embeddings(whole["emb"].squeeze(1))
+            whole_scores, _ = self._pairwise_drug_to_protein_scores(
+                whole_d, r_emb_proj, r_pooled, condition_on_fragments=False,
+            )
+            outputs.update({
+                "whole_binding": whole_scores.diagonal(),
+                "whole_pairwise_binding": whole_scores,
+                "whole_codes": whole["codes"],
+            })
+        return outputs
 
 
 class ConciseJEPAFragment(nn.Module):
@@ -288,7 +354,10 @@ class ConciseJEPAFragment(nn.Module):
         frag_mask: torch.Tensor,          # [B, F] bool
     ) -> dict[str, torch.Tensor]:
         dti_out = self.concise(frag_fps, frag_mask, protein_embedding)
+        return self._jepa_outputs(dti_out)
 
+    def _jepa_outputs(self, dti_out: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
+        """JEPA and features depend exclusively on the aligned fragment path."""
         context = torch.cat([dti_out["d_emb"], dti_out["r_emb"]], dim=-1)  # [B, 2*proj_dim]
         jepa_pred = self.jepa_predictor(context)
 

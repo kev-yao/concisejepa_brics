@@ -1,0 +1,11 @@
+## Review
+
+**No blockers found in the reviewed branch implementation. No corrective edits required.**
+
+- **Correct — tensor and gradient separation:** `src/spikes/phase1/fragment_encoder.py:296–306` encodes whole molecules separately and bypasses fragment pooling. JEPA consumes only aligned fragment/protein features (`:353–356`). Whole supervision can update shared parameters, but has no direct path into F2R parameters or JEPA inputs.
+- **Correct — pair independence and attribution:** candidate-protein indexing is preserved for both branches (`fragment_encoder.py:212–243`). The existing `try/finally` restores aligned F2R weights during checkpoint recomputation (`:175–191`); whole scoring never invokes the pooler. These conditioning/attribution corrections were already present in `preexisting.patch`.
+- **Correct — fusion:** `src/concisejepa/models/secondary_binding.py:33–41` preserves branch outputs and performs late score fusion, defaulting to 75% fragment / 25% whole.
+- **Correct — loss semantics:** `src/concisejepa/lightning_modules/lit_secondary_binding.py:36–48` supervises branches separately using existing binding losses. Together with `src/spikes/phase1/lit_fragment.py:241–264`, the total remains fragment binding + JEPA + existing auxiliaries + 0.25 whole binding, including the configured negative-diagonal weighting. No added alignment or BCE objective.
+- **Correct — regression coverage:** `tests/test_secondary_binding.py:46–161` checks separation, gradients, independent pair scores, permutations, chunk sizes, checkpoint attribution/gradient parity, fusion and loss arithmetic.
+
+**Limits:** Read-only inspection; no commands executed or files modified. Inspected logs report seven secondary tests passing, frozen-source bit-exact old-path parity through two AdamW updates, and completed FSQ/continuous-FSQ CUDA smokes. These do not establish full-training performance. Repository-wide validation is not claimed green: `all-tests.log` records failures, including quantizer failures also recorded in `frozen-quantizer-tests.log`.

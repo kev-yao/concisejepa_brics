@@ -1,0 +1,8 @@
+## Review
+
+**No prelaunch blockers found in the reviewed head and training logic.**
+
+- **Correct:** Genuine residual self-attention blocks and learned-seed attention pooling; type-indexed normalization buffers; padding exclusion throughout (`src/concisejepa/models/set_binding_head.py:14–35,84–117,151–166`). Tests cover joint permutation, nonfinite padding, finite gradients, optimizer updates, and checkpoint roundtrip (`tests/test_set_binding_head.py:38–121`).
+- **Correct:** External `train_head.py:77–146` loads only train/validation, fits statistics only on train, uses unweighted BCE, selects validation fused AP with fixed 5% whole-score fusion, implements the agreed stopping rule, and verifies checkpoint reload. `trials.json` matches `PLAN.md`.
+- **Note — medium, provenance hardening:** Artifact `train_head.py:17,28–31` imports through ambient Python resolution but verifies files under `source/`; verification alone does not establish that the imported head is that snapshot. Pin the launcher’s `PYTHONPATH` to the snapshot and assert/log the imported module’s resolved path.
+- **Limits:** Read-only inspection; no commands executed or test data accessed. Existing logs report **9 focused tests** and **78 compatible tests** passing. Smoke status records two completed epochs; reload verification precedes completion in the script. Collection, winner locking, fresh-versus-cached validation parity, and final evaluation remain parent-owned and unreviewed. Backbone/cache hashes were inspected as provenance records, not independently recomputed.

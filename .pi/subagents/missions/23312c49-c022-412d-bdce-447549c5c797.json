@@ -1,0 +1,140 @@
+{
+  "schemaVersion": 1,
+  "id": "23312c49-c022-412d-bdce-447549c5c797",
+  "title": "Compare Set Transformer binding head with boosted readout",
+  "objective": "User requested a Set Transformer instead of the boosted-tree binding head. Direct frozen-backbone comparison using identical four typed 256-D feature vectors (drug, protein, product, absolute difference), preserving FSQ/F2R and fragment-only JEPA, unchanged whole score at5%. Implement/test a real SAB+PMA neural set readout, screen a small validation-selected set, evaluate the locked winner once on unchanged test. Max two H200 head-training jobs concurrently; no test-based tuning or benchmark changes. Artifacts in 20260909-0145-set-transformer-readout.",
+  "status": "completed",
+  "createdAt": "2026-09-09T05:51:38.142Z",
+  "updatedAt": "2026-09-09T06:30:31.634Z",
+  "runs": [
+    {
+      "runId": "144e173b-98c7-4915-beed-179c71a15894",
+      "mode": "workflow",
+      "asyncDir": "/hpc/group/singhlab/user/me196/tmp/pi-subagents-uid-1543297/async-subagent-runs/144e173b-98c7-4915-beed-179c71a15894",
+      "status": "complete",
+      "startedAt": "2026-09-09T05:52:11.334Z",
+      "completedAt": "2026-09-09T06:03:24.909Z"
+    },
+    {
+      "runId": "0134134d-bc8d-45b7-b589-99f2a104c535",
+      "mode": "workflow",
+      "asyncDir": "/hpc/group/singhlab/user/me196/tmp/pi-subagents-uid-1543297/async-subagent-runs/0134134d-bc8d-45b7-b589-99f2a104c535",
+      "status": "complete",
+      "startedAt": "2026-09-09T06:00:45.842Z",
+      "completedAt": "2026-09-09T06:02:03.397Z"
+    },
+    {
+      "runId": "b25cdf8b-b467-4afb-bba5-60755b107a2e",
+      "mode": "workflow",
+      "asyncDir": "/hpc/group/singhlab/user/me196/tmp/pi-subagents-uid-1543297/async-subagent-runs/b25cdf8b-b467-4afb-bba5-60755b107a2e",
+      "status": "complete",
+      "startedAt": "2026-09-09T06:10:18.188Z",
+      "completedAt": "2026-09-09T06:11:21.964Z"
+    }
+  ],
+  "workflowChildren": [
+    {
+      "workflowRunId": "144e173b-98c7-4915-beed-179c71a15894",
+      "key": "set-head-implementation",
+      "status": "completed",
+      "startedAt": "2026-09-09T05:52:11.449Z",
+      "updatedAt": "2026-09-09T06:03:24.828Z",
+      "artifactPaths": [
+        "/hpc/group/singhlab/user/me196/projects/obsidian/runs/concisejepa_brics_training/20260909-0145-set-transformer-readout/implementation.md",
+        "/hpc/home/me196/.pi/agent/sessions/--hpc-group-singhlab-user-me196-projects-obsidian-runs-concisejepa_brics--/2026-09-09T05-52-11-864Z_01a084b9-4e58-7421-9077-6f9c62102821.jsonl"
+      ],
+      "runId": "009934ba",
+      "agent": "worker",
+      "completedAt": "2026-09-09T06:03:24.828Z",
+      "sessionPath": "/hpc/home/me196/.pi/agent/sessions/--hpc-group-singhlab-user-me196-projects-obsidian-runs-concisejepa_brics--/2026-09-09T05-52-11-864Z_01a084b9-4e58-7421-9077-6f9c62102821.jsonl",
+      "heartbeat": {
+        "updatedAt": "2026-09-09T06:03:24.828Z",
+        "status": "completed"
+      }
+    },
+    {
+      "workflowRunId": "0134134d-bc8d-45b7-b589-99f2a104c535",
+      "key": "set-head-review",
+      "status": "completed",
+      "startedAt": "2026-09-09T06:00:46.008Z",
+      "updatedAt": "2026-09-09T06:02:03.289Z",
+      "artifactPaths": [
+        "/hpc/group/singhlab/user/me196/projects/obsidian/runs/concisejepa_brics_training/20260909-0145-set-transformer-readout/review.md",
+        "/hpc/home/me196/.pi/agent/sessions/--hpc-group-singhlab-user-me196-projects-obsidian-runs-concisejepa_brics--/2026-09-09T00-27-09-278Z_01a0838f-b85e-731e-94e9-7b268cf5e582/57b45c54/run-0/session.jsonl"
+      ],
+      "runId": "57b45c54",
+      "agent": "reviewer",
+      "completedAt": "2026-09-09T06:02:03.289Z",
+      "sessionPath": "/hpc/home/me196/.pi/agent/sessions/--hpc-group-singhlab-user-me196-projects-obsidian-runs-concisejepa_brics--/2026-09-09T00-27-09-278Z_01a0838f-b85e-731e-94e9-7b268cf5e582/57b45c54/run-0/session.jsonl",
+      "heartbeat": {
+        "updatedAt": "2026-09-09T06:02:03.289Z",
+        "status": "completed"
+      }
+    },
+    {
+      "workflowRunId": "b25cdf8b-b467-4afb-bba5-60755b107a2e",
+      "key": "set-evaluation-review",
+      "status": "completed",
+      "startedAt": "2026-09-09T06:10:18.429Z",
+      "updatedAt": "2026-09-09T06:11:21.893Z",
+      "artifactPaths": [
+        "/hpc/group/singhlab/user/me196/tmp/pi-subagents-uid-1543297/async-subagent-runs/be2e1b03",
+        "/hpc/home/me196/.pi/agent/sessions/--hpc-group-singhlab-user-me196-projects-obsidian-runs-concisejepa_brics--/2026-09-09T00-27-09-278Z_01a0838f-b85e-731e-94e9-7b268cf5e582/57b45c54/run-0/session.jsonl"
+      ],
+      "runId": "be2e1b03",
+      "agent": "reviewer",
+      "completedAt": "2026-09-09T06:11:21.893Z",
+      "sessionPath": "/hpc/home/me196/.pi/agent/sessions/--hpc-group-singhlab-user-me196-projects-obsidian-runs-concisejepa_brics--/2026-09-09T00-27-09-278Z_01a0838f-b85e-731e-94e9-7b268cf5e582/57b45c54/run-0/session.jsonl",
+      "heartbeat": {
+        "updatedAt": "2026-09-09T06:11:21.893Z",
+        "status": "completed"
+      }
+    }
+  ],
+  "decisions": [],
+  "artifacts": [
+    {
+      "kind": "status",
+      "path": "/hpc/group/singhlab/user/me196/tmp/pi-subagents-uid-1543297/async-subagent-runs/144e173b-98c7-4915-beed-179c71a15894/status.json"
+    },
+    {
+      "kind": "other",
+      "path": "/hpc/group/singhlab/user/me196/tmp/pi-subagents-uid-1543297/async-subagent-runs/144e173b-98c7-4915-beed-179c71a15894/events.jsonl",
+      "description": "Lifecycle events"
+    },
+    {
+      "kind": "status",
+      "path": "/hpc/group/singhlab/user/me196/tmp/pi-subagents-uid-1543297/async-subagent-runs/0134134d-bc8d-45b7-b589-99f2a104c535/status.json"
+    },
+    {
+      "kind": "other",
+      "path": "/hpc/group/singhlab/user/me196/tmp/pi-subagents-uid-1543297/async-subagent-runs/0134134d-bc8d-45b7-b589-99f2a104c535/events.jsonl",
+      "description": "Lifecycle events"
+    },
+    {
+      "kind": "output",
+      "path": "/hpc/group/singhlab/user/me196/projects/obsidian/runs/concisejepa_brics_training/20260909-0145-set-transformer-readout/review.md"
+    },
+    {
+      "kind": "output",
+      "path": "/hpc/group/singhlab/user/me196/projects/obsidian/runs/concisejepa_brics_training/20260909-0145-set-transformer-readout/implementation.md"
+    },
+    {
+      "kind": "status",
+      "path": "/hpc/group/singhlab/user/me196/tmp/pi-subagents-uid-1543297/async-subagent-runs/b25cdf8b-b467-4afb-bba5-60755b107a2e/status.json"
+    },
+    {
+      "kind": "other",
+      "path": "/hpc/group/singhlab/user/me196/tmp/pi-subagents-uid-1543297/async-subagent-runs/b25cdf8b-b467-4afb-bba5-60755b107a2e/events.jsonl",
+      "description": "Lifecycle events"
+    },
+    {
+      "kind": "output",
+      "path": "/hpc/group/singhlab/user/me196/tmp/pi-subagents-uid-1543297/async-subagent-runs/be2e1b03"
+    }
+  ],
+  "receipts": [],
+  "cwd": "/hpc/group/singhlab/user/me196/projects/obsidian/runs/concisejepa_brics",
+  "ownerSessionId": "/hpc/home/me196/.pi/agent/sessions/--hpc-group-singhlab-user-me196-projects-obsidian-runs-concisejepa_brics--/2026-09-09T00-27-09-278Z_01a0838f-b85e-731e-94e9-7b268cf5e582.jsonl",
+  "summary": "Completed requested Set Transformer binding-head comparison. Four seed42 cached-feature neural fits all completed (array54783889, concurrency1 alongside existing developmentH200; max2 allocations); evaluator54783963 completed. Validation selected S128_drop2 (128dims,2SABs,4heads,1PMAseed,dropout0.2,epoch14): valfusedAP0.6437600004,testfusedAP0.6596324788, primarytestAP0.6455283249. Fixed95/5 primary/unchangedwhole fusion clears0.65, but trails treefusion0.6969976968. Genuine neural SetTransformer on samefourtypedderivedfeaturevectors, NOT individualBRICS fragmentpooler replacement; FSQ/F2R/JEPA backbone frozen, no trees inprediction. TRAIN-only normalization/BCE, validation-onlyselection, one lockedtest call unchanged13100rows/1891positives. Savedpredictions independently recomputed withTorchMetrics and cohort/whole-score/hash/fusionchecks. Ninefrozenheadtests and78compatible repositorytests pass; independentarchitecture/trainer/evaluatorreviews no remainingblockers afterimportpinning andexclusivecollector/testmarker fixes. Sourceonlythree newmodule/test/doc files; preexistingtrackeddiff unchanged,nothingstaged. Artifacts /hpc/group/singhlab/user/me196/projects/obsidian/runs/concisejepa_brics_training/20260909-0145-set-transformer-readout/RESULTS.md,VALIDATION.md,selection.json,verification.json,artifacts-manifest.json. Allnewjobsfinished,no furthersearch. Limits one seed,already-monitorednoncoldbenchmark; primaryalonebelow.65. FailedinitialQOSsubmission andnarrow-snapshotmissingauxiliarytestscriptattempt bothrecorded/resolved; actualfitsnotretried."
+}

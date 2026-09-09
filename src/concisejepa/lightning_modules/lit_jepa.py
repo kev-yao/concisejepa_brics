@@ -827,7 +827,9 @@ class LitConciseJEPA(pl.LightningModule):
         batch_size: int,
         device: torch.device,
     ) -> torch.Tensor:
-        positive_column_mask = (labels > 0.5).unsqueeze(0)
+        positive = labels > 0.5
+        positive_column_mask = positive.unsqueeze(0)
+        positive_row_mask = positive.unsqueeze(1)
         if len(smiles_list) == batch_size:
             smiles_match = self._build_identity_matrix(smiles_list, device)
         else:
@@ -836,7 +838,9 @@ class LitConciseJEPA(pl.LightningModule):
             sequence_match = self._build_identity_matrix(sequence_list, device)
         else:
             sequence_match = torch.zeros((batch_size, batch_size), dtype=torch.bool, device=device)
-        return (smiles_match | sequence_match) & positive_column_mask
+        # Entry [i, j] scores drug i against protein j. A matching drug
+        # inherits label j; a matching protein inherits label i.
+        return (smiles_match & positive_column_mask) | (sequence_match & positive_row_mask)
 
     def _contrastive_logits_targets(
         self,

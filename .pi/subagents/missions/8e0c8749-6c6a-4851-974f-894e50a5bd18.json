@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "id": "8e0c8749-6c6a-4851-974f-894e50a5bd18",
+  "title": "[prompt redacted]",
+  "objective": "[prompt redacted]",
+  "status": "completed",
+  "createdAt": "2026-09-08T20:05:48.644Z",
+  "updatedAt": "2026-09-08T20:50:44.343Z",
+  "runs": [
+    {
+      "runId": "afff5a84-b2ab-468f-b264-67c004e713a9",
+      "mode": "workflow",
+      "asyncDir": "/hpc/group/singhlab/user/me196/tmp/pi-subagents-uid-1543297/async-subagent-runs/afff5a84-b2ab-468f-b264-67c004e713a9",
+      "status": "failed",
+      "startedAt": "2026-09-08T20:05:48.755Z",
+      "completedAt": "2026-09-08T20:05:50.506Z"
+    }
+  ],
+  "workflowChildren": [],
+  "decisions": [],
+  "artifacts": [
+    {
+      "kind": "status",
+      "path": "/hpc/group/singhlab/user/me196/tmp/pi-subagents-uid-1543297/async-subagent-runs/afff5a84-b2ab-468f-b264-67c004e713a9/status.json"
+    },
+    {
+      "kind": "other",
+      "path": "/hpc/group/singhlab/user/me196/tmp/pi-subagents-uid-1543297/async-subagent-runs/afff5a84-b2ab-468f-b264-67c004e713a9/events.jsonl",
+      "description": "Lifecycle events"
+    }
+  ],
+  "receipts": [],
+  "cwd": "/hpc/group/singhlab/user/me196/projects/obsidian/runs/concisejepa_brics",
+  "ownerSessionId": "/hpc/home/me196/.pi/agent/sessions/--hpc-group-singhlab-user-me196-projects-obsidian-runs-concisejepa_brics--/2026-09-08T19-00-22-834Z_01a08264-8cb2-7045-8da3-2bf40166ecdc.jsonl",
+  "summary": "Actual parent-launched H200 training completed normally at2026-09-08T16:26:30-04:00, exit0, all30 epochs, final checkpoint/test metrics present. Native subagent launch had failed before starting, then direct wrapper PID884663/Python884673 succeeded. Run /hpc/group/singhlab/user/me196/projects/obsidian/runs/concisejepa_brics_training/20260908-155827-f2r-fixed/training/brics-f2r-fixed-8b23255a. Fixed training panel2407 unique fragments: active codes4->1075, effective1.333->793.099, topfraction.936435->.006647, final factorcoverage31/32 each. Test batch-averaged AP.559018 AUROC.872416; test JEPA MSE.113562. These legacy split/metric results do not prove FSQ optimal or causally isolate fixes; no alternative-quantizer retraining yet."
+}

@@ -11,6 +11,12 @@ class DrugEncoder(torch.nn.Module):
 
     Drug encoder with residual finite scalar quantization layers.
 
+    ``quantizer={"type": "continuous_fsq"}`` is a matched no-rounding control:
+    it retains the FSQ projections, bounds, and scale, but returns continuous
+    points and -1 code sentinels. It has no discrete embedding/enumeration API.
+    Keep the quantizer type in checkpoint configuration: parameter keys/shapes
+    intentionally match FSQ, so a state dict alone does not identify the mode.
+
     Args:
         layers (List[List[int]]): Quantization levels for each ResidualFSQ layer.
         dim (int, optional): Input dimension of the drug representation. Defaults to 2048.
@@ -51,10 +57,12 @@ class DrugEncoder(torch.nn.Module):
         self.quantizer_type = str(quantizer.get("type", "fsq")).lower()
         self.residualfsqs = torch.nn.ModuleList()
         self.diveq = None
-        if self.quantizer_type == "fsq":
+        if self.quantizer_type in ("fsq", "continuous_fsq"):
             if len(layers) != 1:
                 raise ValueError("Hybrid FSQ requires exactly one drug_layers entry")
-            self.residualfsqs = self._build_residual_fsq_layers(layers, latent_dim, activation)
+            self.residualfsqs = self._build_residual_fsq_layers(
+                layers, latent_dim, activation, discretize=self.quantizer_type == "fsq"
+            )
             if not self.residualfsqs:
                 raise ValueError("FSQ requires at least one drug_layers entry")
             self.num_tokens = len(self.residualfsqs)
@@ -102,6 +110,7 @@ class DrugEncoder(torch.nn.Module):
         layers: List[List[int]],
         latent_dim: int,
         activation: Type[torch.nn.Module],
+        discretize: bool = True,
     ) -> torch.nn.ModuleList:
         return torch.nn.ModuleList(
             [
@@ -110,6 +119,7 @@ class DrugEncoder(torch.nn.Module):
                     idx,
                     dim=latent_dim,
                     activation=activation,
+                    discretize=discretize,
                 )
                 for idx, layer_config in enumerate(layers)
             ]
@@ -136,7 +146,10 @@ class DrugEncoder(torch.nn.Module):
         res = self.residualfsqs[0](x, return_code=True)
         quantized = res["quantized"]
         points = res["points"]
-        factors = self.residualfsqs[0].fsq.codes_to_factors(points).squeeze(1)
+        if self.quantizer_type == "continuous_fsq":
+            factors = torch.full_like(points.squeeze(1), -1, dtype=torch.long)
+        else:
+            factors = self.residualfsqs[0].fsq.codes_to_factors(points).squeeze(1)
         return {
             "codes": factors,
             "emb": quantized,
@@ -155,6 +168,8 @@ class DrugEncoder(torch.nn.Module):
         Returns:
             torch.Tensor: Reconstructed embeddings of shape (batch_size, 1, latent_dim)
         """
+        if self.quantizer_type == "continuous_fsq":
+            raise RuntimeError("continuous_fsq has no discrete codes to embed")
         if self.quantizer_type == "diveq":
             return self.diveq.embed(codes)
 
@@ -177,16 +192,18 @@ class DrugEncoder(torch.nn.Module):
 
     def get_levels(self) -> List[List[int]]:
         """
-        Get current quantization levels from all ResidualFSQ layers.
+        Get quantization (or continuous-control bounding) levels from each layer.
 
         Returns:
             List[List[int]]: List of quantization levels for each layer
         """
-        if self.quantizer_type != "fsq":
-            raise RuntimeError("get_levels is only available for the FSQ quantizer")
+        if self.quantizer_type not in ("fsq", "continuous_fsq"):
+            raise RuntimeError("get_levels is only available for FSQ-based encoders")
         return [rfsq.fsq._levels for rfsq in self.residualfsqs]
 
     def all_code_indices(self, device: torch.device | None = None) -> torch.Tensor:
+        if self.quantizer_type == "continuous_fsq":
+            raise RuntimeError("continuous_fsq has no discrete codebook to enumerate")
         if self.quantizer_type == "diveq":
             return self.diveq.all_code_indices(device=device)
         levels = self.get_levels()[0]

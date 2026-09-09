@@ -92,6 +92,14 @@ def main(cfg: DictConfig) -> None:
     _write_run_manifest(cfg)
 
     model = instantiate(cfg.model)
+    backbone_checkpoint = OmegaConf.select(cfg, "initialization.backbone_checkpoint")
+    if backbone_checkpoint:
+        # Opt-in warm start, not a Trainer resume: all model parameters remain
+        # trainable and the new readout/optimizer start fresh.
+        receipt = model.initialize_backbone(backbone_checkpoint)
+        (Path(cfg.runtime.run_dir) / "initialization.json").write_text(
+            json.dumps(receipt, indent=2) + "\n", encoding="utf-8"
+        )
     datamodule = instantiate(cfg.data)
     # ``config`` is the first positional parameter of hydra.instantiate itself,
     # so use an unambiguous task-constructor keyword for the global config.
@@ -102,17 +110,22 @@ def main(cfg: DictConfig) -> None:
 
     trainer.fit(task, datamodule=datamodule)
 
-    best_callback = callbacks_by_name.get("best_checkpoint")
-    final_callback = callbacks_by_name.get("final_checkpoint")
-    best_ckpt = best_callback.best_model_path if isinstance(best_callback, ModelCheckpoint) else ""
-    final_ckpt = final_callback.best_model_path if isinstance(final_callback, ModelCheckpoint) else ""
-    test_ckpt = final_ckpt or None
-    if test_ckpt:
-        print(f"Testing with FINAL-EPOCH checkpoint: {test_ckpt}")
-        print(f"(best-by-monitor checkpoint, for reference only: {best_ckpt})")
+    # Candidate searches can reserve test for a separately locked winner.
+    # Missing setting supports older saved configs with the original behavior.
+    if OmegaConf.select(cfg, "evaluation.run_test", default=True):
+        best_callback = callbacks_by_name.get("best_checkpoint")
+        final_callback = callbacks_by_name.get("final_checkpoint")
+        best_ckpt = best_callback.best_model_path if isinstance(best_callback, ModelCheckpoint) else ""
+        final_ckpt = final_callback.best_model_path if isinstance(final_callback, ModelCheckpoint) else ""
+        test_ckpt = final_ckpt or None
+        if test_ckpt:
+            print(f"Testing with FINAL-EPOCH checkpoint: {test_ckpt}")
+            print(f"(best-by-monitor checkpoint, for reference only: {best_ckpt})")
+        else:
+            print("No saved final checkpoint found; testing with current in-memory weights.")
+        trainer.test(task, datamodule=datamodule, ckpt_path=test_ckpt)
     else:
-        print("No saved final checkpoint found; testing with current in-memory weights.")
-    trainer.test(task, datamodule=datamodule, ckpt_path=test_ckpt)
+        print("Test evaluation skipped: evaluation.run_test=false.")
     print(f"Run directory: {cfg.runtime.run_dir}")
     print(f"Resolved config: {Path(cfg.runtime.run_dir) / 'resolved_config.yaml'}")
 

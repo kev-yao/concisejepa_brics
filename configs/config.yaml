@@ -23,6 +23,10 @@ runtime:
   run_dir: null
   checkpoint_dir: null
 
+# Disable for candidate fits; evaluate the locked winner separately.
+evaluation:
+  run_test: true
+
 negative_diagonal_loss:
   enabled: true
   weight: 1.0

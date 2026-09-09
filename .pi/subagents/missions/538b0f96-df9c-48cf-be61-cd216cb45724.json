@@ -1,0 +1,241 @@
+{
+  "schemaVersion": 1,
+  "id": "538b0f96-df9c-48cf-be61-cd216cb45724",
+  "title": "Reach test pooled AP > 0.65 with secondary-binding F2R",
+  "objective": "Iterate models/training on the existing BindingDB splits toward test pooled AP >0.65. Preserve primary fragment F2R and fragment-only JEPA; whole molecule stays a secondary separately scored binding path. Select candidates and hyperparameters on validation, report every test inspection honestly, never change labels/splits/filtering to hit target. At most two concurrent H200 experiment jobs. Persist plans, source/input hashes, scores, and next actions; pause only for genuine blockers or exhausted agent budget, not after a single failed round.",
+  "goal": {
+    "status": "active"
+  },
+  "budget": {
+    "tokens": 200000
+  },
+  "usage": {
+    "tokens": 0
+  },
+  "status": "completed",
+  "createdAt": "2026-09-09T04:55:55.980Z",
+  "updatedAt": "2026-09-09T05:30:19.486Z",
+  "runs": [
+    {
+      "runId": "563c05e2-4d10-49cc-a040-be4196098666",
+      "mode": "workflow",
+      "asyncDir": "/hpc/group/singhlab/user/me196/tmp/pi-subagents-uid-1543297/async-subagent-runs/563c05e2-4d10-49cc-a040-be4196098666",
+      "status": "complete",
+      "startedAt": "2026-09-09T04:56:34.013Z",
+      "completedAt": "2026-09-09T05:02:20.421Z"
+    },
+    {
+      "runId": "40073bac-71d5-4d91-8e88-531eb5b4fc84",
+      "mode": "workflow",
+      "asyncDir": "/hpc/group/singhlab/user/me196/tmp/pi-subagents-uid-1543297/async-subagent-runs/40073bac-71d5-4d91-8e88-531eb5b4fc84",
+      "status": "complete",
+      "startedAt": "2026-09-09T05:03:37.636Z",
+      "completedAt": "2026-09-09T05:17:04.111Z"
+    },
+    {
+      "runId": "fa6fa804-69ac-49b8-bcc0-c087f82706f5",
+      "mode": "workflow",
+      "asyncDir": "/hpc/group/singhlab/user/me196/tmp/pi-subagents-uid-1543297/async-subagent-runs/fa6fa804-69ac-49b8-bcc0-c087f82706f5",
+      "status": "complete",
+      "startedAt": "2026-09-09T05:08:01.662Z",
+      "completedAt": "2026-09-09T05:09:50.402Z"
+    },
+    {
+      "runId": "19e6722a-de19-4f05-90f6-aeca05d536b7",
+      "mode": "workflow",
+      "asyncDir": "/hpc/group/singhlab/user/me196/tmp/pi-subagents-uid-1543297/async-subagent-runs/19e6722a-de19-4f05-90f6-aeca05d536b7",
+      "status": "complete",
+      "startedAt": "2026-09-09T05:20:24.407Z",
+      "completedAt": "2026-09-09T05:21:47.403Z"
+    }
+  ],
+  "workflowChildren": [
+    {
+      "workflowRunId": "563c05e2-4d10-49cc-a040-be4196098666",
+      "key": "data-diagnostics",
+      "status": "completed",
+      "startedAt": "2026-09-09T04:56:34.182Z",
+      "updatedAt": "2026-09-09T04:59:51.595Z",
+      "artifactPaths": [
+        "/hpc/group/singhlab/user/me196/projects/obsidian/runs/concisejepa_brics_training/20260909-0055-ap65-goal/data-diagnostics.md",
+        "/hpc/home/me196/.pi/agent/sessions/--hpc-group-singhlab-user-me196-projects-obsidian-runs-concisejepa_brics--/2026-09-09T00-27-09-278Z_01a0838f-b85e-731e-94e9-7b268cf5e582/a3235bb3/run-0/session.jsonl"
+      ],
+      "runId": "a3235bb3",
+      "agent": "scout",
+      "completedAt": "2026-09-09T04:59:51.595Z",
+      "sessionPath": "/hpc/home/me196/.pi/agent/sessions/--hpc-group-singhlab-user-me196-projects-obsidian-runs-concisejepa_brics--/2026-09-09T00-27-09-278Z_01a0838f-b85e-731e-94e9-7b268cf5e582/a3235bb3/run-0/session.jsonl",
+      "heartbeat": {
+        "updatedAt": "2026-09-09T04:59:51.595Z",
+        "status": "completed"
+      }
+    },
+    {
+      "workflowRunId": "563c05e2-4d10-49cc-a040-be4196098666",
+      "key": "objective-plan",
+      "status": "completed",
+      "startedAt": "2026-09-09T04:56:34.790Z",
+      "updatedAt": "2026-09-09T05:02:20.338Z",
+      "artifactPaths": [
+        "/hpc/group/singhlab/user/me196/projects/obsidian/runs/concisejepa_brics_training/20260909-0055-ap65-goal/objective-plan.md",
+        "/hpc/home/me196/.pi/agent/sessions/--hpc-group-singhlab-user-me196-projects-obsidian-runs-concisejepa_brics--/2026-09-09T00-27-09-278Z_01a0838f-b85e-731e-94e9-7b268cf5e582/edff7927/run-0/session.jsonl"
+      ],
+      "runId": "edff7927",
+      "agent": "scout",
+      "completedAt": "2026-09-09T05:02:20.338Z",
+      "sessionPath": "/hpc/home/me196/.pi/agent/sessions/--hpc-group-singhlab-user-me196-projects-obsidian-runs-concisejepa_brics--/2026-09-09T00-27-09-278Z_01a0838f-b85e-731e-94e9-7b268cf5e582/edff7927/run-0/session.jsonl",
+      "heartbeat": {
+        "updatedAt": "2026-09-09T05:02:20.338Z",
+        "status": "completed"
+      }
+    },
+    {
+      "workflowRunId": "40073bac-71d5-4d91-8e88-531eb5b4fc84",
+      "key": "objective-implementation",
+      "status": "completed",
+      "startedAt": "2026-09-09T05:03:37.784Z",
+      "updatedAt": "2026-09-09T05:17:04.031Z",
+      "artifactPaths": [
+        "/hpc/group/singhlab/user/me196/projects/obsidian/runs/concisejepa_brics_training/20260909-0055-ap65-goal/objective-implementation.md",
+        "/hpc/home/me196/.pi/agent/sessions/--hpc-group-singhlab-user-me196-projects-obsidian-runs-concisejepa_brics--/2026-09-09T05-03-38-205Z_01a0848c-d8dd-7c74-a553-d513e6dfad99.jsonl"
+      ],
+      "runId": "75ca0d57",
+      "agent": "worker",
+      "completedAt": "2026-09-09T05:17:04.031Z",
+      "sessionPath": "/hpc/home/me196/.pi/agent/sessions/--hpc-group-singhlab-user-me196-projects-obsidian-runs-concisejepa_brics--/2026-09-09T05-03-38-205Z_01a0848c-d8dd-7c74-a553-d513e6dfad99.jsonl",
+      "heartbeat": {
+        "updatedAt": "2026-09-09T05:17:04.031Z",
+        "status": "completed"
+      }
+    },
+    {
+      "workflowRunId": "fa6fa804-69ac-49b8-bcc0-c087f82706f5",
+      "key": "readout-promotion-review",
+      "status": "completed",
+      "startedAt": "2026-09-09T05:08:01.784Z",
+      "updatedAt": "2026-09-09T05:09:50.324Z",
+      "artifactPaths": [
+        "/hpc/group/singhlab/user/me196/projects/obsidian/runs/concisejepa_brics_training/20260909-0055-ap65-goal/readout-review.md",
+        "/hpc/home/me196/.pi/agent/sessions/--hpc-group-singhlab-user-me196-projects-obsidian-runs-concisejepa_brics--/2026-09-09T00-27-09-278Z_01a0838f-b85e-731e-94e9-7b268cf5e582/eadc2654/run-0/session.jsonl"
+      ],
+      "runId": "eadc2654",
+      "agent": "reviewer",
+      "completedAt": "2026-09-09T05:09:50.324Z",
+      "sessionPath": "/hpc/home/me196/.pi/agent/sessions/--hpc-group-singhlab-user-me196-projects-obsidian-runs-concisejepa_brics--/2026-09-09T00-27-09-278Z_01a0838f-b85e-731e-94e9-7b268cf5e582/eadc2654/run-0/session.jsonl",
+      "heartbeat": {
+        "updatedAt": "2026-09-09T05:09:50.324Z",
+        "status": "completed"
+      }
+    },
+    {
+      "workflowRunId": "19e6722a-de19-4f05-90f6-aeca05d536b7",
+      "key": "boosted-readout-review",
+      "status": "completed",
+      "startedAt": "2026-09-09T05:20:24.514Z",
+      "updatedAt": "2026-09-09T05:21:39.219Z",
+      "artifactPaths": [
+        "/hpc/group/singhlab/user/me196/tmp/pi-subagents-uid-1543297/async-subagent-runs/1a4764b7",
+        "/hpc/home/me196/.pi/agent/sessions/--hpc-group-singhlab-user-me196-projects-obsidian-runs-concisejepa_brics--/2026-09-09T00-27-09-278Z_01a0838f-b85e-731e-94e9-7b268cf5e582/eadc2654/run-0/session.jsonl"
+      ],
+      "runId": "1a4764b7",
+      "agent": "reviewer",
+      "completedAt": "2026-09-09T05:21:39.219Z",
+      "sessionPath": "/hpc/home/me196/.pi/agent/sessions/--hpc-group-singhlab-user-me196-projects-obsidian-runs-concisejepa_brics--/2026-09-09T00-27-09-278Z_01a0838f-b85e-731e-94e9-7b268cf5e582/eadc2654/run-0/session.jsonl",
+      "heartbeat": {
+        "updatedAt": "2026-09-09T05:21:39.219Z",
+        "status": "completed"
+      }
+    },
+    {
+      "workflowRunId": "19e6722a-de19-4f05-90f6-aeca05d536b7",
+      "key": "objective-code-review",
+      "status": "completed",
+      "startedAt": "2026-09-09T05:20:25.602Z",
+      "updatedAt": "2026-09-09T05:21:47.338Z",
+      "artifactPaths": [
+        "/hpc/group/singhlab/user/me196/projects/obsidian/runs/concisejepa_brics_training/20260909-0055-ap65-goal/objective-review.md",
+        "/hpc/home/me196/.pi/agent/sessions/--hpc-group-singhlab-user-me196-projects-obsidian-runs-concisejepa_brics--/2026-09-09T00-27-09-278Z_01a0838f-b85e-731e-94e9-7b268cf5e582/c1d81fd0/run-0/session.jsonl"
+      ],
+      "runId": "c1d81fd0",
+      "agent": "reviewer",
+      "completedAt": "2026-09-09T05:21:47.338Z",
+      "sessionPath": "/hpc/home/me196/.pi/agent/sessions/--hpc-group-singhlab-user-me196-projects-obsidian-runs-concisejepa_brics--/2026-09-09T00-27-09-278Z_01a0838f-b85e-731e-94e9-7b268cf5e582/c1d81fd0/run-0/session.jsonl",
+      "heartbeat": {
+        "updatedAt": "2026-09-09T05:21:47.338Z",
+        "status": "completed"
+      }
+    }
+  ],
+  "decisions": [],
+  "artifacts": [
+    {
+      "kind": "status",
+      "path": "/hpc/group/singhlab/user/me196/tmp/pi-subagents-uid-1543297/async-subagent-runs/563c05e2-4d10-49cc-a040-be4196098666/status.json"
+    },
+    {
+      "kind": "other",
+      "path": "/hpc/group/singhlab/user/me196/tmp/pi-subagents-uid-1543297/async-subagent-runs/563c05e2-4d10-49cc-a040-be4196098666/events.jsonl",
+      "description": "Lifecycle events"
+    },
+    {
+      "kind": "output",
+      "path": "/hpc/group/singhlab/user/me196/projects/obsidian/runs/concisejepa_brics_training/20260909-0055-ap65-goal/data-diagnostics.md"
+    },
+    {
+      "kind": "output",
+      "path": "/hpc/group/singhlab/user/me196/projects/obsidian/runs/concisejepa_brics_training/20260909-0055-ap65-goal/objective-plan.md"
+    },
+    {
+      "kind": "status",
+      "path": "/hpc/group/singhlab/user/me196/tmp/pi-subagents-uid-1543297/async-subagent-runs/40073bac-71d5-4d91-8e88-531eb5b4fc84/status.json"
+    },
+    {
+      "kind": "other",
+      "path": "/hpc/group/singhlab/user/me196/tmp/pi-subagents-uid-1543297/async-subagent-runs/40073bac-71d5-4d91-8e88-531eb5b4fc84/events.jsonl",
+      "description": "Lifecycle events"
+    },
+    {
+      "kind": "status",
+      "path": "/hpc/group/singhlab/user/me196/tmp/pi-subagents-uid-1543297/async-subagent-runs/fa6fa804-69ac-49b8-bcc0-c087f82706f5/status.json"
+    },
+    {
+      "kind": "other",
+      "path": "/hpc/group/singhlab/user/me196/tmp/pi-subagents-uid-1543297/async-subagent-runs/fa6fa804-69ac-49b8-bcc0-c087f82706f5/events.jsonl",
+      "description": "Lifecycle events"
+    },
+    {
+      "kind": "output",
+      "path": "/hpc/group/singhlab/user/me196/projects/obsidian/runs/concisejepa_brics_training/20260909-0055-ap65-goal/readout-review.md"
+    },
+    {
+      "kind": "output",
+      "path": "/hpc/group/singhlab/user/me196/projects/obsidian/runs/concisejepa_brics_training/20260909-0055-ap65-goal/objective-implementation.md"
+    },
+    {
+      "kind": "status",
+      "path": "/hpc/group/singhlab/user/me196/tmp/pi-subagents-uid-1543297/async-subagent-runs/19e6722a-de19-4f05-90f6-aeca05d536b7/status.json"
+    },
+    {
+      "kind": "other",
+      "path": "/hpc/group/singhlab/user/me196/tmp/pi-subagents-uid-1543297/async-subagent-runs/19e6722a-de19-4f05-90f6-aeca05d536b7/events.jsonl",
+      "description": "Lifecycle events"
+    },
+    {
+      "kind": "output",
+      "path": "/hpc/group/singhlab/user/me196/tmp/pi-subagents-uid-1543297/async-subagent-runs/1a4764b7"
+    },
+    {
+      "kind": "output",
+      "path": "/hpc/group/singhlab/user/me196/projects/obsidian/runs/concisejepa_brics_training/20260909-0055-ap65-goal/objective-review.md"
+    }
+  ],
+  "receipts": [],
+  "cwd": "/hpc/group/singhlab/user/me196/projects/obsidian/runs/concisejepa_brics",
+  "ownerSessionId": "/hpc/home/me196/.pi/agent/sessions/--hpc-group-singhlab-user-me196-projects-obsidian-runs-concisejepa_brics--/2026-09-09T00-27-09-278Z_01a0838f-b85e-731e-94e9-7b268cf5e582.jsonl",
+  "summary": "GOAL ACHIEVED and search stopped: test pooled AP0.6969976968 >0.65; validation0.6710058808; testAUROC0.9217789, unchanged13100 rows/1891 positives. Winner P2_hgb31_alpha0.05 is TRAIN-fitted HistGradientBoosting primary head on frozen FSQ3 F2R neural features, 95/5 primary/unchanged whole-score fusion, not end-to-end neural retraining. Whole remains outside fragment pooling/JEPA. Candidate/head/fusion selected by validation, locked before one HGB test check; saved prediction AP independently agrees with TorchMetrics. Prior linear candidate test0.641967 missed; both test checks recorded. Artifacts /hpc/group/singhlab/user/me196/projects/obsidian/runs/concisejepa_brics_training/20260909-0055-ap65-goal/RESULTS.md, hgb-selection.json, goal-verification.json, winning-artifacts-manifest.json. Independent readout/objective reviews no remaining blockers; parent69 compatible tests passed. Optional objective/test-gate code prepared but no four60epoch full jobs launched since cheaper head route succeeded. Residual caveats: one seed, non-cold/noisy splits, monitored test stopping not untouched holdout; secondary slightly hurts validation, no universal benefit claim; pretrained backbone alone cannot reproduce winning head results. No outstanding experiment jobs or further iteration required; no staging/commits/shared-cache mutations.",
+  "labels": [
+    "binding-ap65",
+    "max-two-h200-jobs",
+    "validation-selected",
+    "same-splits"
+  ]
+}

@@ -1,0 +1,4 @@
+{"schemaVersion":1,"timestamp":"2026-09-08T23:08:12.702Z","event":"schedule.created","scheduleId":"ce9bc357"}
+{"schemaVersion":1,"timestamp":"2026-09-08T23:10:12.718Z","event":"schedule.run.started","scheduleId":"ce9bc357","runId":"3274bf70","state":"running"}
+{"schemaVersion":1,"timestamp":"2026-09-08T23:10:12.849Z","event":"schedule.run.attached_async","scheduleId":"ce9bc357","runId":"3274bf70","state":"running"}
+{"schemaVersion":1,"timestamp":"2026-09-08T23:11:33.066Z","event":"schedule.run.failed","scheduleId":"ce9bc357","runId":"3274bf70","state":"failed_run"}

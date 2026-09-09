@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "id": "77c344c0-35a1-4691-b864-823205fef3e5",
+  "title": "[prompt redacted]",
+  "objective": "[prompt redacted]",
+  "status": "completed",
+  "createdAt": "2026-09-08T19:30:48.460Z",
+  "updatedAt": "2026-09-08T19:35:23.681Z",
+  "runs": [
+    {
+      "runId": "95f015c8-350b-4b46-89f6-95f4a345288d",
+      "mode": "workflow",
+      "asyncDir": "/hpc/group/singhlab/user/me196/tmp/pi-subagents-uid-1543297/async-subagent-runs/95f015c8-350b-4b46-89f6-95f4a345288d",
+      "status": "complete",
+      "startedAt": "2026-09-08T19:30:48.512Z",
+      "completedAt": "2026-09-08T19:31:53.477Z"
+    }
+  ],
+  "workflowChildren": [
+    {
+      "workflowRunId": "95f015c8-350b-4b46-89f6-95f4a345288d",
+      "key": "conditioning-review",
+      "status": "completed",
+      "startedAt": "2026-09-08T19:30:48.611Z",
+      "updatedAt": "2026-09-08T19:31:53.413Z",
+      "artifactPaths": [
+        "/hpc/home/me196/.pi/agent/sessions/--hpc-group-singhlab-user-me196-projects-obsidian-runs-concisejepa_brics--/2026-09-08T19-00-22-834Z_01a08264-8cb2-7045-8da3-2bf40166ecdc/1f494d08/run-0/session.jsonl"
+      ],
+      "runId": "1f494d08",
+      "agent": "reviewer",
+      "completedAt": "2026-09-08T19:31:53.413Z",
+      "sessionPath": "/hpc/home/me196/.pi/agent/sessions/--hpc-group-singhlab-user-me196-projects-obsidian-runs-concisejepa_brics--/2026-09-08T19-00-22-834Z_01a08264-8cb2-7045-8da3-2bf40166ecdc/1f494d08/run-0/session.jsonl",
+      "heartbeat": {
+        "updatedAt": "2026-09-08T19:31:53.413Z",
+        "status": "completed"
+      }
+    }
+  ],
+  "decisions": [],
+  "artifacts": [
+    {
+      "kind": "status",
+      "path": "/hpc/group/singhlab/user/me196/tmp/pi-subagents-uid-1543297/async-subagent-runs/95f015c8-350b-4b46-89f6-95f4a345288d/status.json"
+    },
+    {
+      "kind": "other",
+      "path": "/hpc/group/singhlab/user/me196/tmp/pi-subagents-uid-1543297/async-subagent-runs/95f015c8-350b-4b46-89f6-95f4a345288d/events.jsonl",
+      "description": "Lifecycle events"
+    },
+    {
+      "kind": "output",
+      "path": "/hpc/home/me196/.pi/agent/sessions/--hpc-group-singhlab-user-me196-projects-obsidian-runs-concisejepa_brics--/2026-09-08T19-00-22-834Z_01a08264-8cb2-7045-8da3-2bf40166ecdc/1f494d08/run-0/session.jsonl"
+    }
+  ],
+  "receipts": [],
+  "cwd": "/hpc/group/singhlab/user/me196/projects/obsidian/runs/concisejepa_brics",
+  "ownerSessionId": "/hpc/home/me196/.pi/agent/sessions/--hpc-group-singhlab-user-me196-projects-obsidian-runs-concisejepa_brics--/2026-09-08T19-00-22-834Z_01a08264-8cb2-7045-8da3-2bf40166ecdc.jsonl",
+  "summary": "Implemented approved conditioning-only fix in fragment_encoder.py with new six-test regression module and architecture/development docs. Confirmed red->green pair invariance and attribution; 27 recommended tests pass; real BindingDB H200 two-step smoke passes for F2R/cross-attention with finite gradients and <=5.96e-8 sampled independent-pair error. Mean/max/weighted_sum/latent_query two-step legacy outputs/gradients/updates bit-exact; state loading and aligned predictions preserved. Independent reviewer no blockers. No commit or staging; positive-mask and FSQ changes excluded. Evidence /hpc/group/singhlab/user/me196/tmp/fragment-conditioning-fix-20260908-152257/RESULTS.md. Residual: no full retraining or production-size memory/performance benchmark; minor unused aligned projection retained."
+}

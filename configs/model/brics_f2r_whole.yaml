@@ -1,0 +1,9 @@
+defaults:
+  - brics_fsq
+  - _self_
+
+_target_: concisejepa.models.secondary_binding.ConciseJEPASecondaryBinding
+concise_fragment:
+  pooling: f2r
+# Starting value only; tune using validation, never test.
+whole_binding_weight: 0.25

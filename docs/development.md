@@ -35,6 +35,9 @@ The tests are written with `unittest`, so they do not require `pytest`:
 ```bash
 PYTHONPATH=src:. python -m unittest -q \
   tests.test_brics_hydra_integration \
+  tests.test_fragment_pair_conditioning \
+  tests.test_positive_pair_mask \
+  tests.test_continuous_fsq \
   tests.test_training_refactor_parity \
   tests.test_experiment_configs \
   tests.test_fingerprint_embeddings \

@@ -1,0 +1,139 @@
+{
+  "runId": "edff7927",
+  "agent": "scout",
+  "task": "[prompt redacted]",
+  "exitCode": 0,
+  "processSignal": "SIGTERM",
+  "usage": {
+    "input": 39614,
+    "output": 9849,
+    "cacheRead": 296064,
+    "cacheWrite": 0,
+    "cost": 1.184654,
+    "turns": 16
+  },
+  "model": "openai-codex/gpt-6-astra:low",
+  "attemptedModels": [
+    "openai-codex/gpt-6-astra:low"
+  ],
+  "modelAttempts": [
+    {
+      "model": "openai-codex/gpt-6-astra:low",
+      "success": true,
+      "exitCode": 0,
+      "usage": {
+        "input": 39614,
+        "output": 9849,
+        "cacheRead": 296064,
+        "cacheWrite": 0,
+        "cost": 1.184654,
+        "turns": 16
+      }
+    }
+  ],
+  "durationMs": 345088,
+  "toolCount": 30,
+  "launchContractDigest": "deef793fb36f5bfaf043140aba21b15fbdb2e7d0a643117957e136013b0a79b3",
+  "launchResolvedExtensions": {
+    "version": 1,
+    "source": "launch-resolved",
+    "disableAmbientExtensions": false,
+    "runtime": [
+      "sha256:977abd40f81b4d97"
+    ],
+    "configured": [],
+    "effective": [
+      "sha256:977abd40f81b4d97"
+    ],
+    "omitted": {
+      "runtime": 0,
+      "configured": 0,
+      "effective": 0
+    }
+  },
+  "acceptance": {
+    "status": "attested",
+    "evidenceStatus": "attested",
+    "explicit": false,
+    "effectiveAcceptance": {
+      "level": "attested",
+      "explicit": false,
+      "inferredReason": [
+        "read-only/reviewer-style agent"
+      ],
+      "criteria": [
+        {
+          "id": "criterion-1",
+          "must": "Return concrete findings with file paths and severity when applicable",
+          "evidence": [
+            "review-findings",
+            "residual-risks"
+          ],
+          "severity": "required"
+        }
+      ],
+      "evidence": [
+        "review-findings",
+        "residual-risks"
+      ],
+      "verify": [],
+      "stopRules": []
+    },
+    "inferredReason": [
+      "read-only/reviewer-style agent"
+    ],
+    "criteria": [
+      {
+        "id": "criterion-1",
+        "must": "Return concrete findings with file paths and severity when applicable",
+        "evidence": [
+          "review-findings",
+          "residual-risks"
+        ],
+        "severity": "required"
+      }
+    ],
+    "runtimeChecks": [],
+    "verifyRuns": [],
+    "childReport": {
+      "criteriaSatisfied": [
+        {
+          "id": "criterion-1",
+          "status": "satisfied",
+          "evidence": "Artifact contains inspected file paths, severity-tagged findings, trajectory analysis and concrete experiment plan."
+        }
+      ],
+      "changedFiles": [
+        "/hpc/group/singhlab/user/me196/projects/obsidian/runs/concisejepa_brics_training/20260909-0055-ap65-goal/objective-plan.md"
+      ],
+      "testsAddedOrUpdated": [],
+      "commandsRun": [
+        {
+          "command": "Read-only source inspection and trajectory JSON parsing",
+          "result": "passed",
+          "summary": "Required files and all 30 epochs inspected."
+        }
+      ],
+      "validationOutput": [
+        "Best validation fused AP: 0.548917651 at epoch27."
+      ],
+      "residualRisks": [
+        "Single-seed uncertainty; no guarantee of test AP >0.65; tests not executed."
+      ],
+      "noStagedFiles": true,
+      "diffSummary": "Requested report only.",
+      "reviewFindings": [
+        "high: main.py:103-115 automatically tests final checkpoint; gate testing before candidate runs."
+      ]
+    }
+  },
+  "effects": {
+    "fileMutation": {
+      "status": "not-applicable",
+      "expected": false,
+      "attempted": true
+    }
+  },
+  "transcriptPath": "/hpc/group/singhlab/user/me196/projects/obsidian/runs/concisejepa_brics/.pi/subagents/artifacts/edff7927_scout_0_transcript.jsonl",
+  "timestamp": 1788930140287
+}

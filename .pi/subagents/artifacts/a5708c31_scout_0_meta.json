@@ -1,0 +1,160 @@
+{
+  "runId": "a5708c31",
+  "agent": "scout",
+  "task": "[prompt redacted]",
+  "exitCode": 0,
+  "processSignal": "SIGTERM",
+  "usage": {
+    "input": 31299,
+    "output": 4051,
+    "cacheRead": 106624,
+    "cacheWrite": 0,
+    "cost": 0.622164,
+    "turns": 8
+  },
+  "model": "openai-codex/gpt-6-astra:low",
+  "attemptedModels": [
+    "openai-codex/gpt-6-astra:low"
+  ],
+  "modelAttempts": [
+    {
+      "model": "openai-codex/gpt-6-astra:low",
+      "success": true,
+      "exitCode": 0,
+      "usage": {
+        "input": 31299,
+        "output": 4051,
+        "cacheRead": 106624,
+        "cacheWrite": 0,
+        "cost": 0.622164,
+        "turns": 8
+      }
+    }
+  ],
+  "durationMs": 151404,
+  "toolCount": 30,
+  "launchContractDigest": "e4368bc945c9e79b48eca118eb77b883c881199a319c3a4fd180fbd8d723bac3",
+  "launchResolvedExtensions": {
+    "version": 1,
+    "source": "launch-resolved",
+    "disableAmbientExtensions": false,
+    "runtime": [
+      "sha256:977abd40f81b4d97"
+    ],
+    "configured": [],
+    "effective": [
+      "sha256:977abd40f81b4d97"
+    ],
+    "omitted": {
+      "runtime": 0,
+      "configured": 0,
+      "effective": 0
+    }
+  },
+  "acceptance": {
+    "status": "attested",
+    "evidenceStatus": "attested",
+    "explicit": false,
+    "effectiveAcceptance": {
+      "level": "attested",
+      "explicit": false,
+      "inferredReason": [
+        "read-only/reviewer-style agent"
+      ],
+      "criteria": [
+        {
+          "id": "criterion-1",
+          "must": "Return concrete findings with file paths and severity when applicable",
+          "evidence": [
+            "review-findings",
+            "residual-risks"
+          ],
+          "severity": "required"
+        }
+      ],
+      "evidence": [
+        "review-findings",
+        "residual-risks"
+      ],
+      "verify": [],
+      "stopRules": []
+    },
+    "inferredReason": [
+      "read-only/reviewer-style agent"
+    ],
+    "criteria": [
+      {
+        "id": "criterion-1",
+        "must": "Return concrete findings with file paths and severity when applicable",
+        "evidence": [
+          "review-findings",
+          "residual-risks"
+        ],
+        "severity": "required"
+      }
+    ],
+    "runtimeChecks": [],
+    "verifyRuns": [],
+    "childReport": {
+      "criteriaSatisfied": [
+        {
+          "id": "criterion-1",
+          "status": "satisfied",
+          "evidence": "Concrete severity-ranked findings identify stale-cache population mismatch, factor-axis corruption in monitor artifacts, valid zero fallback fingerprints, sampling differences, and missing provenance with exact file references."
+        }
+      ],
+      "changedFiles": [],
+      "testsAddedOrUpdated": [],
+      "commandsRun": [
+        {
+          "command": "Targeted ls/find/read/grep of source, configs, docs, tests and the explicitly referenced run directory",
+          "result": "passed",
+          "summary": "Located exact checkpoint filenames, run summary, minimal hparams, and old cache metadata without loading checkpoints or caches."
+        },
+        {
+          "command": "Python standard-library arithmetic over codebook_utilization.json",
+          "result": "passed",
+          "summary": "Verified 7148 molecules, 45654 fragment occurrences, mean 6.38696, and entropy perplexity 121.51748."
+        },
+        {
+          "command": "git status --short; git rev-parse HEAD; git remote -v; git diff --cached --name-only",
+          "result": "passed",
+          "summary": "Recorded source provenance; only pre-existing untracked .pi/ appeared; no staged files."
+        },
+        {
+          "command": "Training, checkpoint inference, cache loading and test suite",
+          "result": "not-run",
+          "summary": "Read-only bounded audit; no training or heavyweight data access."
+        }
+      ],
+      "validationOutput": [
+        "Run summary identifies fragment_latent_query_719fa566 and epoch-29 AUPRC-0.5587 checkpoint.",
+        "Old cache metadata n_smiles=7148 matches artifact-derived molecule count.",
+        "Current BRICS callback bundle excludes the incompatible old FSQ monitor."
+      ],
+      "residualRisks": [
+        "Exact run data overrides, factor layout and source revision are not recoverable from the inspected minimal hparams.",
+        "Artifact generation against the currently inspected checkpoint/cache cannot be proven without hashes or regeneration.",
+        "Actual duplicate-fingerprint and invalid-zero rates remain unmeasured.",
+        "Model and quantizer mathematics are assigned to the parent, not validated here."
+      ],
+      "noStagedFiles": true,
+      "diffSummary": "No source or project modifications.",
+      "reviewFindings": [
+        "high: scripts/analyze_codebook_utilization.py:26-29,61-76 - analysis population is the older entire cache, not verified BindingDB training rows.",
+        "high: src/concisejepa/evals/FSQ_monitor.py:375-386 - factor tuples collapse to scalar modes in saved monitor distributions.",
+        "medium: src/spikes/phase1/fragment_datamodule.py:109-116,218-221,282 - failure-zero fingerprints remain valid tokens.",
+        "medium: scripts/analyze_codebook_utilization.py:121-130 - artifact omits reproducibility provenance and per-factor distributions."
+      ]
+    }
+  },
+  "effects": {
+    "fileMutation": {
+      "status": "not-applicable",
+      "expected": false,
+      "attempted": false
+    }
+  },
+  "transcriptPath": "/hpc/group/singhlab/user/me196/projects/obsidian/runs/concisejepa_brics/.pi/subagents/artifacts/a5708c31_scout_0_transcript.jsonl",
+  "timestamp": 1788894349581
+}

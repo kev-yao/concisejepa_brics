@@ -1,0 +1,137 @@
+{
+  "runId": "eadc2654",
+  "agent": "reviewer",
+  "task": "[prompt redacted]",
+  "exitCode": 0,
+  "processSignal": "SIGTERM",
+  "usage": {
+    "input": 54231,
+    "output": 2549,
+    "cacheRead": 86400,
+    "cacheWrite": 0,
+    "cost": 0.75616,
+    "turns": 9
+  },
+  "model": "openai-codex/gpt-6-astra:high",
+  "attemptedModels": [
+    "openai-codex/gpt-6-astra:high"
+  ],
+  "modelAttempts": [
+    {
+      "model": "openai-codex/gpt-6-astra:high",
+      "success": true,
+      "exitCode": 0,
+      "usage": {
+        "input": 54231,
+        "output": 2549,
+        "cacheRead": 86400,
+        "cacheWrite": 0,
+        "cost": 0.75616,
+        "turns": 9
+      }
+    }
+  ],
+  "durationMs": 107980,
+  "toolCount": 24,
+  "launchContractDigest": "9b091f8c443717e6c268deca773196c3e4025bb3fcbabc26cfa4420b95029d5d",
+  "launchResolvedExtensions": {
+    "version": 1,
+    "source": "launch-resolved",
+    "disableAmbientExtensions": false,
+    "runtime": [
+      "sha256:977abd40f81b4d97"
+    ],
+    "configured": [],
+    "effective": [
+      "sha256:977abd40f81b4d97"
+    ],
+    "omitted": {
+      "runtime": 0,
+      "configured": 0,
+      "effective": 0
+    }
+  },
+  "acceptance": {
+    "status": "attested",
+    "evidenceStatus": "attested",
+    "explicit": false,
+    "effectiveAcceptance": {
+      "level": "attested",
+      "explicit": false,
+      "inferredReason": [
+        "read-only/reviewer-style agent"
+      ],
+      "criteria": [
+        {
+          "id": "criterion-1",
+          "must": "Return concrete findings with file paths and severity when applicable",
+          "evidence": [
+            "review-findings",
+            "residual-risks"
+          ],
+          "severity": "required"
+        }
+      ],
+      "evidence": [
+        "review-findings",
+        "residual-risks"
+      ],
+      "verify": [],
+      "stopRules": []
+    },
+    "inferredReason": [
+      "read-only/reviewer-style agent"
+    ],
+    "criteria": [
+      {
+        "id": "criterion-1",
+        "must": "Return concrete findings with file paths and severity when applicable",
+        "evidence": [
+          "review-findings",
+          "residual-risks"
+        ],
+        "severity": "required"
+      }
+    ],
+    "runtimeChecks": [],
+    "verifyRuns": [],
+    "childReport": {
+      "criteriaSatisfied": [
+        {
+          "id": "criterion-1",
+          "status": "satisfied",
+          "evidence": "Reviewed probe, selection, summary, wrapper, plan, immutable model/data source and synthetic tests; concrete file/line findings above."
+        }
+      ],
+      "changedFiles": [],
+      "testsAddedOrUpdated": [],
+      "commandsRun": [],
+      "validationOutput": [
+        "Static pipeline comparison matches feature construction, train-only fit and 75/25 fusion.",
+        "Recorded selected validation AP is 0.6136697302997057; not independently executed."
+      ],
+      "residualRisks": [
+        "Ambient imports and unhashed configuration require provenance verification before test.",
+        "Validation reproduction and candidate perturbation checks remain pending.",
+        "Previously inspected benchmark cannot support an untouched-holdout claim."
+      ],
+      "noStagedFiles": true,
+      "diffSummary": "Read-only review; no modifications.",
+      "reviewFindings": [
+        "No static modeling or label-leakage blockers found.",
+        "Medium: readout_candidate.py:25-29 does not enforce recorded immutable source_root.",
+        "Primary and whole final scoring heads are distinct; upstream neural parameters remain shared."
+      ],
+      "manualNotes": "No Git inspection was performed; noStagedFiles means this reviewer staged nothing. No test data or labels were accessed."
+    }
+  },
+  "effects": {
+    "fileMutation": {
+      "status": "not-applicable",
+      "expected": false,
+      "attempted": false
+    }
+  },
+  "transcriptPath": "/hpc/group/singhlab/user/me196/projects/obsidian/runs/concisejepa_brics/.pi/subagents/artifacts/eadc2654_reviewer_0_transcript.jsonl",
+  "timestamp": 1788930590271
+}

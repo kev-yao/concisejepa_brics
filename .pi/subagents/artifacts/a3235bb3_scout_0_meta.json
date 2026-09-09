@@ -1,0 +1,141 @@
+{
+  "runId": "a3235bb3",
+  "agent": "scout",
+  "task": "[prompt redacted]",
+  "exitCode": 0,
+  "processSignal": "SIGTERM",
+  "usage": {
+    "input": 32341,
+    "output": 4851,
+    "cacheRead": 107520,
+    "cacheWrite": 0,
+    "cost": 0.67348,
+    "turns": 14
+  },
+  "model": "openai-codex/gpt-6-astra:low",
+  "attemptedModels": [
+    "openai-codex/gpt-6-astra:low"
+  ],
+  "modelAttempts": [
+    {
+      "model": "openai-codex/gpt-6-astra:low",
+      "success": true,
+      "exitCode": 0,
+      "usage": {
+        "input": 32341,
+        "output": 4851,
+        "cacheRead": 107520,
+        "cacheWrite": 0,
+        "cost": 0.67348,
+        "turns": 14
+      }
+    }
+  ],
+  "durationMs": 196746,
+  "toolCount": 16,
+  "launchContractDigest": "7c85f5d4fb2526aafa1f09169cf0bdd1887262862685a9058b3646845f297a72",
+  "launchResolvedExtensions": {
+    "version": 1,
+    "source": "launch-resolved",
+    "disableAmbientExtensions": false,
+    "runtime": [
+      "sha256:977abd40f81b4d97"
+    ],
+    "configured": [],
+    "effective": [
+      "sha256:977abd40f81b4d97"
+    ],
+    "omitted": {
+      "runtime": 0,
+      "configured": 0,
+      "effective": 0
+    }
+  },
+  "acceptance": {
+    "status": "attested",
+    "evidenceStatus": "attested",
+    "explicit": false,
+    "effectiveAcceptance": {
+      "level": "attested",
+      "explicit": false,
+      "inferredReason": [
+        "read-only/reviewer-style agent"
+      ],
+      "criteria": [
+        {
+          "id": "criterion-1",
+          "must": "Return concrete findings with file paths and severity when applicable",
+          "evidence": [
+            "review-findings",
+            "residual-risks"
+          ],
+          "severity": "required"
+        }
+      ],
+      "evidence": [
+        "review-findings",
+        "residual-risks"
+      ],
+      "verify": [],
+      "stopRules": []
+    },
+    "inferredReason": [
+      "read-only/reviewer-style agent"
+    ],
+    "criteria": [
+      {
+        "id": "criterion-1",
+        "must": "Return concrete findings with file paths and severity when applicable",
+        "evidence": [
+          "review-findings",
+          "residual-risks"
+        ],
+        "severity": "required"
+      }
+    ],
+    "runtimeChecks": [],
+    "verifyRuns": [],
+    "childReport": {
+      "criteriaSatisfied": [
+        {
+          "id": "criterion-1",
+          "status": "satisfied",
+          "evidence": "Report contains quantified split diagnostics, validation-only baselines, exact source paths, and severity-ranked findings."
+        }
+      ],
+      "changedFiles": [
+        "/hpc/group/singhlab/user/me196/projects/obsidian/runs/concisejepa_brics_training/20260909-0055-ap65-goal/data-diagnostics.md"
+      ],
+      "testsAddedOrUpdated": [],
+      "commandsRun": [
+        {
+          "command": "Read-only CPU pandas/torch/sklearn probe",
+          "result": "passed",
+          "summary": "TRAIN-fit identity baseline validation AP 0.528984; eligible rows 12545/6535."
+        }
+      ],
+      "validationOutput": [
+        "Validation prevalence 0.141239; receptor-rate AP 0.466372."
+      ],
+      "residualRisks": [
+        "Goal attainability unproven; no model prediction comparison or test inspection."
+      ],
+      "noStagedFiles": true,
+      "diffSummary": "Report only; no source/data modifications or jobs.",
+      "reviewFindings": [
+        "High: contrastive objective differs from supervised pooled pair ranking.",
+        "Medium: duplicate/conflicting pairs and split overlap require diagnostic reporting, not filtering changes."
+      ],
+      "manualNotes": "No staging commands run; pre-existing index state not audited."
+    }
+  },
+  "effects": {
+    "fileMutation": {
+      "status": "not-applicable",
+      "expected": false,
+      "attempted": true
+    }
+  },
+  "transcriptPath": "/hpc/group/singhlab/user/me196/projects/obsidian/runs/concisejepa_brics/.pi/subagents/artifacts/a3235bb3_scout_0_transcript.jsonl",
+  "timestamp": 1788929991524
+}

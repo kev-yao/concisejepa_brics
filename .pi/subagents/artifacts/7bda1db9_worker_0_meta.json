@@ -1,0 +1,207 @@
+{
+  "runId": "7bda1db9",
+  "agent": "worker",
+  "task": "[prompt redacted]",
+  "exitCode": 0,
+  "processSignal": "SIGTERM",
+  "usage": {
+    "input": 85830,
+    "output": 8953,
+    "cacheRead": 1471744,
+    "cacheWrite": 0,
+    "cost": 2.777694,
+    "turns": 21
+  },
+  "model": "openai-codex/gpt-6-astra:high",
+  "attemptedModels": [
+    "openai-codex/gpt-6-astra:high"
+  ],
+  "modelAttempts": [
+    {
+      "model": "openai-codex/gpt-6-astra:high",
+      "success": true,
+      "exitCode": 0,
+      "usage": {
+        "input": 85830,
+        "output": 8953,
+        "cacheRead": 1471744,
+        "cacheWrite": 0,
+        "cost": 2.777694,
+        "turns": 21
+      }
+    }
+  ],
+  "durationMs": 609418,
+  "toolCount": 20,
+  "launchContractDigest": "86bba951fd7236673bfdea4cb5dac62f5b671fcca452b03dd6afc76f6724a755",
+  "launchResolvedExtensions": {
+    "version": 1,
+    "source": "launch-resolved",
+    "disableAmbientExtensions": false,
+    "runtime": [
+      "sha256:977abd40f81b4d97"
+    ],
+    "configured": [],
+    "effective": [
+      "sha256:977abd40f81b4d97"
+    ],
+    "omitted": {
+      "runtime": 0,
+      "configured": 0,
+      "effective": 0
+    }
+  },
+  "acceptance": {
+    "status": "checked",
+    "evidenceStatus": "checked",
+    "explicit": false,
+    "effectiveAcceptance": {
+      "level": "checked",
+      "explicit": false,
+      "inferredReason": [
+        "write-capable worker/task"
+      ],
+      "criteria": [
+        {
+          "id": "criterion-1",
+          "must": "Implement the requested change without widening scope",
+          "evidence": [
+            "changed-files",
+            "tests-added",
+            "commands-run",
+            "residual-risks",
+            "no-staged-files"
+          ],
+          "severity": "required"
+        }
+      ],
+      "evidence": [
+        "changed-files",
+        "tests-added",
+        "commands-run",
+        "residual-risks",
+        "no-staged-files"
+      ],
+      "verify": [],
+      "stopRules": []
+    },
+    "inferredReason": [
+      "write-capable worker/task"
+    ],
+    "criteria": [
+      {
+        "id": "criterion-1",
+        "must": "Implement the requested change without widening scope",
+        "evidence": [
+          "changed-files",
+          "tests-added",
+          "commands-run",
+          "residual-risks",
+          "no-staged-files"
+        ],
+        "severity": "required"
+      }
+    ],
+    "runtimeChecks": [
+      {
+        "id": "criterion:criterion-1",
+        "status": "passed",
+        "message": "Required criterion 'criterion-1' satisfied."
+      },
+      {
+        "id": "evidence:changed-files",
+        "status": "passed",
+        "message": "changed-files evidence present."
+      },
+      {
+        "id": "evidence:tests-added",
+        "status": "passed",
+        "message": "tests-added evidence present."
+      },
+      {
+        "id": "evidence:commands-run",
+        "status": "passed",
+        "message": "commands-run evidence present."
+      },
+      {
+        "id": "evidence:residual-risks",
+        "status": "passed",
+        "message": "residual-risks evidence present."
+      },
+      {
+        "id": "evidence:no-staged-files",
+        "status": "passed",
+        "message": "no-staged-files evidence present."
+      },
+      {
+        "id": "no-staged-files",
+        "status": "passed",
+        "message": "No staged files detected."
+      }
+    ],
+    "verifyRuns": [],
+    "childReport": {
+      "criteriaSatisfied": [
+        {
+          "id": "criterion-1",
+          "status": "satisfied",
+          "evidence": "Only three authorized files changed; six new tests and 18 regression tests passed."
+        }
+      ],
+      "changedFiles": [
+        "src/concisejepa/models/drug_decoder.py",
+        "src/concisejepa/models/fsq.py",
+        "tests/test_continuous_fsq.py"
+      ],
+      "testsAddedOrUpdated": [
+        "tests/test_continuous_fsq.py: six focused tests"
+      ],
+      "commandsRun": [
+        {
+          "command": "GPU-environment unittest suite; exact invocation in written report",
+          "result": "passed",
+          "summary": "24 tests passed"
+        },
+        {
+          "command": "CPU/CUDA immutable-snapshot parity probe",
+          "result": "passed",
+          "summary": "Default FSQ outputs, gradients and parameters bit-exact across two AdamW steps"
+        },
+        {
+          "command": "ruff check src/concisejepa/models/drug_decoder.py src/concisejepa/models/fsq.py tests/test_continuous_fsq.py",
+          "result": "passed",
+          "summary": "All checks passed"
+        },
+        {
+          "command": "git diff --check && git diff --cached --quiet",
+          "result": "passed",
+          "summary": "No whitespace errors or staged files"
+        }
+      ],
+      "validationOutput": [
+        "Ran 24 tests in 3.821s; OK",
+        "CPU and CUDA baseline parity passed"
+      ],
+      "residualRisks": [
+        "Continuous code sentinels must not count toward occupancy",
+        "Checkpoint configuration must retain quantizer type",
+        "Full-batch smoke and training remain parent-owned"
+      ],
+      "noStagedFiles": true,
+      "diffSummary": "Explicit matched no-rounding control; unchanged default FSQ behavior",
+      "reviewFindings": [
+        "No blockers in self-review"
+      ],
+      "manualNotes": "Preserved existing fixes. No training launches or run-bundle writes."
+    }
+  },
+  "effects": {
+    "fileMutation": {
+      "status": "observed",
+      "expected": true,
+      "attempted": true
+    }
+  },
+  "transcriptPath": "/hpc/group/singhlab/user/me196/projects/obsidian/runs/concisejepa_brics/.pi/subagents/artifacts/7bda1db9_worker_0_transcript.jsonl",
+  "timestamp": 1788901558766
+}

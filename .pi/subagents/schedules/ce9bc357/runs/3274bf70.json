@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "id": "3274bf70",
+  "scheduleId": "ce9bc357",
+  "plannedAt": "2026-09-08T23:10:12.684Z",
+  "dueReason": "timer",
+  "state": "failed_run",
+  "startedAt": "2026-09-08T23:10:12.688Z",
+  "asyncId": "e519ad27-83c1-48c5-936e-79a4c83830d4",
+  "asyncDir": "/hpc/group/singhlab/user/me196/tmp/pi-subagents-uid-1543297/async-subagent-runs/e519ad27-83c1-48c5-936e-79a4c83830d4",
+  "completedAt": "2026-09-08T23:11:33.040Z",
+  "error": "Error: Run 'verify-quantizer-comparison' failed: Run fan-out: 1/64 used, 63 remaining\nSubagent completed without making edits for an implementation task.\nIt appears to have returned planning or scratchpad output instead of applying changes.\n\nOutput:\n**Both runs completed successfully:** exit code **0**, **30/30 epochs** (final index 29). `comparison.state=\"completed\"`; `missing=[]`.\n\n- Continuous3 finished **19:03:02 EDT**.\n- FSQ5 finished **19:07:37 EDT**, September 8, 2026.\n\nFinal-checkpoint metrics; paired values are **validation / test**:\n\n| Metric | Continuous3 | FSQ5 |\n|---|---:|---:|\n| Pooled AP | 0.5461 / 0.5429 | 0.5238 / 0.5477 |\n| Validation within-receptor macro AP | 0.7232 | 0.7222 |\n| Molecule-balanced JEPA MSE | 0.1226 / 0.1257 | 0.1232 / 0.1265 |\n| Molecule-balanced retrieval R@1 | 0.0306 / 0.0184 | 0.0356 / 0.0176 |\n| Molecule-balanced retrieval R@5 | 0.1121 / 0.0648 | 0.1128 / 0.0743 |\n| Molecule-balanced retrieval MRR | 0.0830 / 0.0533 | 0.0895 / 0.0559 |\n\n**FSQ5 codes:** 696 active, 436.7 effective, capacity 32,768 (2,407-molecule panel). FSQ3 reference: 1,075 active / 793.1 effective. Continuous3: not applicable.\n\n**Artifacts**, under:\n`/hpc/group/singhlab/user/me196/projects/obsidian/runs/concisejepa_brics_training/20260908-1700-f2r-quantizer-ablation/`\n- `continuous3_training_status.json`\n- `fsq5_training_status.json`\n- `COMPARISON.md`\n- `comparison.json`\n\nSingle seed (**42**) and existing **non-cold splits** limit generalization; these results do not establish a universal winner. All requested artifacts were present, so no SLURM fallback query was needed. Nothing modified or restarted.\n\nOutput artifact: /hpc/group/singhlab/user/me196/projects/obsidian/runs/concisejepa_brics/.pi/subagents/artifacts/593258fb_delegate_0_output.md\n    at MessagePort.<anonymous> ([worker eval]:288:23)\n    at [nodejs.internal.kHybridDispatch] (node:internal/event_target:827:20)\n    at MessagePort.<anonymous> (node:internal/per_context/messageport:23:28)"
+}

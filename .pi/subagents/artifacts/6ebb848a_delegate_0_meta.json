@@ -1,0 +1,139 @@
+{
+  "runId": "6ebb848a",
+  "agent": "delegate",
+  "task": "[prompt redacted]",
+  "exitCode": 0,
+  "processSignal": "SIGTERM",
+  "usage": {
+    "input": 6213,
+    "output": 1747,
+    "cacheRead": 12160,
+    "cacheWrite": 0,
+    "cost": 0.16164000000000003,
+    "turns": 4
+  },
+  "model": "openai-codex/gpt-6-astra",
+  "attemptedModels": [
+    "openai-codex/gpt-6-astra"
+  ],
+  "modelAttempts": [
+    {
+      "model": "openai-codex/gpt-6-astra",
+      "success": true,
+      "exitCode": 0,
+      "usage": {
+        "input": 6213,
+        "output": 1747,
+        "cacheRead": 12160,
+        "cacheWrite": 0,
+        "cost": 0.16164000000000003,
+        "turns": 4
+      }
+    }
+  ],
+  "durationMs": 717299,
+  "toolCount": 3,
+  "launchContractDigest": "c6b93b8f916a88203058d3c225a74dfd227429a9522fa83e72efda932b94adc0",
+  "launchResolvedExtensions": {
+    "version": 1,
+    "source": "launch-resolved",
+    "disableAmbientExtensions": false,
+    "runtime": [
+      "sha256:977abd40f81b4d97"
+    ],
+    "configured": [],
+    "effective": [
+      "sha256:977abd40f81b4d97"
+    ],
+    "omitted": {
+      "runtime": 0,
+      "configured": 0,
+      "effective": 0
+    }
+  },
+  "acceptance": {
+    "status": "attested",
+    "evidenceStatus": "attested",
+    "explicit": false,
+    "effectiveAcceptance": {
+      "level": "attested",
+      "explicit": false,
+      "inferredReason": [
+        "default lightweight attestation"
+      ],
+      "criteria": [
+        {
+          "id": "criterion-1",
+          "must": "Return a concise result and residual risks when applicable",
+          "evidence": [
+            "manual-notes",
+            "residual-risks"
+          ],
+          "severity": "required"
+        }
+      ],
+      "evidence": [
+        "manual-notes",
+        "residual-risks"
+      ],
+      "verify": [],
+      "stopRules": []
+    },
+    "inferredReason": [
+      "default lightweight attestation"
+    ],
+    "criteria": [
+      {
+        "id": "criterion-1",
+        "must": "Return a concise result and residual risks when applicable",
+        "evidence": [
+          "manual-notes",
+          "residual-risks"
+        ],
+        "severity": "required"
+      }
+    ],
+    "runtimeChecks": [],
+    "verifyRuns": [],
+    "childReport": {
+      "criteriaSatisfied": [
+        {
+          "id": "criterion-1",
+          "status": "satisfied",
+          "evidence": "Waiter reported completed, exit_code 0; metrics and artifact directory recorded."
+        }
+      ],
+      "changedFiles": [
+        "/hpc/group/singhlab/user/me196/projects/obsidian/runs/concisejepa_brics_training/20260908-1700-f2r-quantizer-ablation/continuous_completion_fixed_report.md"
+      ],
+      "testsAddedOrUpdated": [],
+      "commandsRun": [
+        {
+          "command": "source /hpc/group/singhlab/user/me196/projects/obsidian/runs/concisejepa_brics_training/20260908-1700-f2r-quantizer-ablation/env.sh; python -u \"$BUNDLE/wait_continuous.py\"",
+          "result": "passed",
+          "summary": "Executed once, foreground, timeout 1530 seconds; completed successfully."
+        }
+      ],
+      "validationOutput": [
+        "Test AP: 0.542878; AUROC: 0.880975."
+      ],
+      "residualRisks": [
+        "comparison.json was absent; five-factor completion remains unverified.",
+        "Individual artifact files were not inspected."
+      ],
+      "noStagedFiles": true,
+      "diffSummary": "Completion report only.",
+      "reviewFindings": [],
+      "manualNotes": "No polling or training restart. No staging operations; existing staging state not inspected."
+    }
+  },
+  "effects": {
+    "fileMutation": {
+      "status": "not-applicable",
+      "expected": false,
+      "attempted": true
+    }
+  },
+  "transcriptPath": "/hpc/group/singhlab/user/me196/projects/obsidian/runs/concisejepa_brics/.pi/subagents/artifacts/6ebb848a_delegate_0_transcript.jsonl",
+  "timestamp": 1788908640995
+}

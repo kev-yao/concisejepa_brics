@@ -1,0 +1,9 @@
+# @package _global_
+defaults:
+  - brics_f2r_set_e2e
+  - override /trainer: debug
+
+run:
+  name_prefix: brics-f2r-set-e2e-debug
+trainer:
+  gradient_clip_val: 1.0

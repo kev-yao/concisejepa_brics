@@ -1,0 +1,5 @@
+## Review
+- **No blockers found.** Compared objective/base-task/runner changes against the immutable secondary snapshot, not Git HEAD.
+- **Correct:** BCE uses aligned branch probabilities and observed labels; objective coefficients and secondary supervision combine independently (`src/concisejepa/lightning_modules/lit_secondary_binding.py:45–85`). JEPA remains fragment-only, with default arithmetic preserved (`src/spikes/phase1/lit_fragment.py:247–253`).
+- **Correct:** False bypasses `Trainer.test` entirely (`main.py:107–120`); the actual fragment datamodule creates no test dataset during fit (`src/spikes/phase1/fragment_datamodule.py:305–310`). Default/legacy final-checkpoint behavior remains intact.
+- **Note:** Inspected objective tests, runner integration tests, prior secondary tests, frozen-parity script and passing logs. No commands, edits, jobs, or test-data evaluation performed during this review.

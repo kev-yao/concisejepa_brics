@@ -1,0 +1,27 @@
+# @package _global_
+defaults:
+  - brics_f2r_whole
+  - override /model: brics_f2r_set_e2e
+
+run:
+  name_prefix: brics-f2r-set-e2e
+
+# Optional trusted legacy secondary-binding Lightning checkpoint. This is
+# weight initialization only, with a fresh Set head and optimizer (no freezing).
+initialization:
+  backbone_checkpoint: null
+
+evaluation:
+  run_test: false
+
+# Preserve fragment JEPA and existing branch contrastive/negative objectives;
+# add observed-pair BCE to supervise the neural readout directly. Whole branch
+# supervision is still independently weighted by secondary_loss_weight=0.25.
+task:
+  binding_bce_weight: 1.0
+
+# The live candidate-pair graph is much larger than the cached-head graph.
+data:
+  batch_size: 32
+trainer:
+  gradient_clip_val: 1.0

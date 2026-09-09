@@ -63,6 +63,8 @@ class LitFragment(pl.LightningModule):
         self.negative_diagonal_weight = negative_diagonal_weight
         self.negative_diagonal_margin = negative_diagonal_margin
 
+        # Secondary-binding tasks may override this after base construction.
+        self.jepa_loss_weight = 1.0
         self.jepa_loss_type = jepa_loss_type
         if jepa_loss_type not in ("mse", "contrastive"):
             raise ValueError(f"Unknown jepa_loss_type: {jepa_loss_type!r}")
@@ -111,7 +113,9 @@ class LitFragment(pl.LightningModule):
         return torch.tensor(mat, dtype=torch.bool, device=device)
 
     def _known_positive_mask(self, labels, smiles_list, sequence_list, B, device):
-        pos_col_mask = (labels > 0.5).unsqueeze(0)
+        positive = labels > 0.5
+        pos_col_mask = positive.unsqueeze(0)
+        pos_row_mask = positive.unsqueeze(1)
         smiles_match = (
             self._build_identity_matrix(smiles_list, device)
             if len(smiles_list) == B
@@ -122,7 +126,9 @@ class LitFragment(pl.LightningModule):
             if len(sequence_list) == B
             else torch.zeros(B, B, dtype=torch.bool, device=device)
         )
-        return (smiles_match | seq_match) & pos_col_mask
+        # Entry [i, j] scores drug i against protein j. A matching drug
+        # inherits label j; a matching protein inherits label i.
+        return (smiles_match & pos_col_mask) | (seq_match & pos_row_mask)
 
     def _contrastive_logits_targets(self, similarity_logits, labels, smiles_list, sequence_list):
         device = similarity_logits.device
@@ -215,23 +221,36 @@ class LitFragment(pl.LightningModule):
     # Step
     # ------------------------------------------------------------------
 
-    def _forward_step(self, batch, stage: str) -> tuple[torch.Tensor, dict]:
+    def _unpack_batch(self, batch):
         protein_emb, frag_fps, frag_mask, smiles_emb, label = batch[:5]
         smiles_list = batch[5] if len(batch) > 5 else []
         seq_list = batch[6] if len(batch) > 6 else []
+        return (protein_emb, frag_fps, frag_mask), smiles_emb, label, smiles_list, seq_list
 
-        outputs = self.model(protein_emb, frag_fps, frag_mask)
-
+    def _binding_losses(self, outputs, label, smiles_list, seq_list, stage):
         loss_dti = self._contrastive_dti_loss(
             outputs["similarity_logits"], label, smiles_list, seq_list)
         loss_neg_diag = self._negative_diagonal_cosine_loss(
             outputs["similarity_cosines"], label, smiles_list, seq_list)
+        return loss_dti, loss_neg_diag
+
+    def _log_binding_metrics(self, outputs, label, stage, batch_size):
+        auprc = getattr(self, f"auprc_{stage}")(outputs["binding"], label.int())
+        auroc = getattr(self, f"auroc_{stage}")(outputs["binding"], label.int())
+        self.log(f"{stage}/dti_auprc", auprc, on_step=False, on_epoch=True, prog_bar=(stage != "train"), batch_size=batch_size)
+        self.log(f"{stage}/dti_auroc", auroc, on_step=False, on_epoch=True, prog_bar=(stage != "train"), batch_size=batch_size)
+
+    def _forward_step(self, batch, stage: str) -> tuple[torch.Tensor, dict]:
+        model_inputs, smiles_emb, label, smiles_list, seq_list = self._unpack_batch(batch)
+        outputs = self.model(*model_inputs)
+        loss_dti, loss_neg_diag = self._binding_losses(outputs, label, smiles_list, seq_list, stage)
         if self.jepa_loss_type == "contrastive":
             loss_jepa = self._contrastive_jepa_loss(outputs["jepa_pred"], smiles_emb, smiles_list)
         else:
             loss_jepa = self.jepa_loss(outputs["jepa_pred"], smiles_emb)
 
-        loss = loss_dti + loss_jepa + self.negative_diagonal_weight * loss_neg_diag
+        weighted_jepa = loss_jepa if self.jepa_loss_weight == 1 else self.jepa_loss_weight * loss_jepa
+        loss = loss_dti + weighted_jepa + self.negative_diagonal_weight * loss_neg_diag
 
         loss_chem = outputs["binding"].new_zeros(())
         if self.chem_property_head is not None and smiles_list:
@@ -248,21 +267,18 @@ class LitFragment(pl.LightningModule):
             loss = loss + self.group_supervision_weight * loss_group
 
         B = int(label.shape[0])
-        auprc = getattr(self, f"auprc_{stage}")(outputs["binding"], label.int())
-        auroc = getattr(self, f"auroc_{stage}")(outputs["binding"], label.int())
+        self._log_binding_metrics(outputs, label, stage, B)
 
         on_step = stage == "train"
         self.log(f"{stage}/loss", loss, prog_bar=True, on_step=on_step, on_epoch=True, batch_size=B)
         self.log(f"{stage}/loss_dti", loss_dti, on_step=False, on_epoch=True, batch_size=B)
         self.log(f"{stage}/loss_jepa", loss_jepa, on_step=False, on_epoch=True, batch_size=B)
+        self.log(f"{stage}/loss_jepa_weighted", weighted_jepa, on_step=False, on_epoch=True, batch_size=B)
         self.log(f"{stage}/loss_neg_diag", loss_neg_diag, on_step=False, on_epoch=True, batch_size=B)
         if self.chem_property_head is not None:
             self.log(f"{stage}/loss_chem", loss_chem, on_step=False, on_epoch=True, batch_size=B)
         if self.group_head is not None:
             self.log(f"{stage}/loss_group", loss_group, on_step=False, on_epoch=True, batch_size=B)
-        self.log(f"{stage}/dti_auprc", auprc, on_step=False, on_epoch=True, prog_bar=(stage != "train"), batch_size=B)
-        self.log(f"{stage}/dti_auroc", auroc, on_step=False, on_epoch=True, prog_bar=(stage != "train"), batch_size=B)
-
         return loss, outputs
 
     def training_step(self, batch, batch_idx):

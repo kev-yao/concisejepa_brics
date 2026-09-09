@@ -211,6 +211,8 @@ class ResidualFSQ(nn.Module):
         i (int): Layer index (used for identification)
         dim (int, optional): Dimension of input/output embeddings. Defaults to 2048.
         activation (Type[nn.Module], optional): Activation function class. Defaults to nn.Tanh.
+        discretize (bool): If False, only remove rounding; preserve FSQ bounds and
+            normalized scale. Returned indices are -1 sentinels in this control.
 
     Attributes:
         fsq (ParamfreeFSQ): The parameter-free quantization module
@@ -236,8 +238,10 @@ class ResidualFSQ(nn.Module):
         i: int,
         dim: int = 2048,
         activation: Type[nn.Module] = nn.Tanh,
+        discretize: bool = True,
     ) -> None:
         super(ResidualFSQ, self).__init__()
+        self.discretize = discretize
 
         # Initialize FSQ layer and activation
         self.fsq = ParamfreeFSQ(levels=fsq_levels)
@@ -300,7 +304,13 @@ class ResidualFSQ(nn.Module):
 
         # Project to quantization space and quantize
         projected = self.in_proj(x)
-        quantized_points, indices = self.fsq(projected)
+        if self.discretize:
+            quantized_points, indices = self.fsq(projected)
+        else:
+            # Matched control: preserve the bounds and normalized scale, only
+            # remove rounding. Negative indices explicitly mean no discrete code.
+            quantized_points = self.fsq.bound(projected) / (self.fsq._levels // 2)
+            indices = torch.full(projected.shape[:-1], -1, dtype=int32, device=projected.device)
 
         # Project back to embedding space
         output = self.out_proj(quantized_points)

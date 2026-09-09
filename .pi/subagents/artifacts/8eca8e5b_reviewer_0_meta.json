@@ -1,0 +1,109 @@
+{
+  "runId": "8eca8e5b",
+  "agent": "reviewer",
+  "task": "[prompt redacted]",
+  "exitCode": 1,
+  "processSignal": "SIGINT",
+  "usage": {
+    "input": 25349,
+    "output": 1955,
+    "cacheRead": 69248,
+    "cacheWrite": 0,
+    "cost": 0.42048800000000003,
+    "turns": 7
+  },
+  "model": "openai-codex/gpt-6-astra:high",
+  "attemptedModels": [
+    "openai-codex/gpt-6-astra:high"
+  ],
+  "modelAttempts": [
+    {
+      "model": "openai-codex/gpt-6-astra:high",
+      "success": false,
+      "exitCode": 1,
+      "error": "Subagent timed out after 1800000ms.",
+      "usage": {
+        "input": 25349,
+        "output": 1955,
+        "cacheRead": 69248,
+        "cacheWrite": 0,
+        "cost": 0.42048800000000003,
+        "turns": 7
+      }
+    }
+  ],
+  "durationMs": 4542872,
+  "toolCount": 29,
+  "error": "Subagent timed out after 1800000ms.",
+  "launchContractDigest": "c1900b4977770c394baa6fe14127b105ba3bd6277e26b904934e52b48b343655",
+  "launchResolvedExtensions": {
+    "version": 1,
+    "source": "launch-resolved",
+    "disableAmbientExtensions": false,
+    "runtime": [
+      "sha256:977abd40f81b4d97"
+    ],
+    "configured": [],
+    "effective": [
+      "sha256:977abd40f81b4d97"
+    ],
+    "omitted": {
+      "runtime": 0,
+      "configured": 0,
+      "effective": 0
+    }
+  },
+  "acceptance": {
+    "status": "rejected",
+    "evidenceStatus": "rejected",
+    "explicit": false,
+    "effectiveAcceptance": {
+      "level": "attested",
+      "explicit": false,
+      "inferredReason": [
+        "read-only/reviewer-style agent"
+      ],
+      "criteria": [
+        {
+          "id": "criterion-1",
+          "must": "Return concrete findings with file paths and severity when applicable",
+          "evidence": [
+            "review-findings",
+            "residual-risks"
+          ],
+          "severity": "required"
+        }
+      ],
+      "evidence": [
+        "review-findings",
+        "residual-risks"
+      ],
+      "verify": [],
+      "stopRules": []
+    },
+    "inferredReason": [
+      "read-only/reviewer-style agent"
+    ],
+    "criteria": [
+      {
+        "id": "criterion-1",
+        "must": "Return concrete findings with file paths and severity when applicable",
+        "evidence": [
+          "review-findings",
+          "residual-risks"
+        ],
+        "severity": "required"
+      }
+    ],
+    "runtimeChecks": [
+      {
+        "id": "timeout",
+        "status": "failed",
+        "message": "Acceptance was not evaluated because the subagent timed out."
+      }
+    ],
+    "verifyRuns": []
+  },
+  "transcriptPath": "/hpc/group/singhlab/user/me196/projects/obsidian/runs/concisejepa_brics/.pi/subagents/artifacts/8eca8e5b_reviewer_0_transcript.jsonl",
+  "timestamp": 1788907284194
+}

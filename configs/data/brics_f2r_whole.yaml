@@ -1,0 +1,7 @@
+defaults:
+  - brics_dual_view
+  - _self_
+
+# Reject binary whole-molecule caches even when metadata claims counts.
+# Supply a verified count cache through data.morgan_embeddings_path.
+require_count_values: true

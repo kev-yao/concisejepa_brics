@@ -136,6 +136,52 @@ Supported pooling names are `mean`, `max`, `whole_mol`, `weighted_sum`, `cross_a
 `pre_attn_latent_query`, `mlp_weighted_sum`, `multi_head_weighted_sum_k2`,
 `multi_head_weighted_sum_k4`, and `f2r`.
 
+### Protein-conditioned pair scoring
+
+Fragment fingerprints are encoded once per batch. Protein-independent poolers produce a
+reusable molecule vector. For `f2r` and `cross_attention`, however, score matrix entry `[i, j]`
+pools drug `i`'s fragment embeddings using **protein `j`**, then projects and scores that pair:
+
+```text
+score[i, j] = score(pool(fragment_embeddings[i], protein[j]), protein[j])
+```
+
+Conditioned pooling and drug projection run inside the existing pair chunks. With checkpointing
+enabled, pair-specific tensor gathers are also recomputed during backward rather than retaining
+expanded raw-protein tensors for every pair. These poolers require more computation than
+protein-independent pooling; `pairwise_attention_chunk_size` controls the per-chunk working set.
+
+`binding`, `d_emb`, `pooled_drug_emb`, JEPA outputs, and F2R `last_weights` still describe the
+aligned `(i, i)` pairs. Pair-chunk forwards and checkpoint recomputation do not overwrite the
+aligned attribution weights. In evaluation mode, every matrix entry must agree with evaluating
+that pair independently, including after independently permuting the protein batch.
+
+Earlier code reused `pool(fragments[i], protein[i])` against all candidate proteins, introducing
+an unrelated anchor-protein dependency into off-diagonal scores. The correction changes those
+scores and subsequent training for context-conditioned poolers. Parameter names/shapes and the
+checkpoint format are unchanged; historical context-conditioned training trajectories are not
+numerically reproducible under the corrected scoring. Protein-independent scoring is unchanged.
+
+## Contrastive positive masking
+
+The whole-molecule and original BRICS contrastive tasks interpret score entry `[i, j]` as
+`(drug_i, protein_j)`. Their identity-based mask uses two different label directions:
+
+```text
+known_positive[i, j] = (same_drug[i, j] AND positive_label[j])
+                   OR (same_protein[i, j] AND positive_label[i])
+```
+
+The same mask excludes known positives from contrastive negatives and from negative-diagonal
+reference means. For `(A, P, positive)` and `(B, P, negative)`, both A-P entries are known
+positives; neither B-P entry is. This preserves discrimination between ligands sharing a
+receptor. Diagonal targets remain available in the contrastive loss.
+
+Earlier code incorrectly applied column labels to both identity cases. Correcting this changes
+losses and training on affected repeated-receptor batches but does not change parameters or
+checkpoint formats. This is direct identity-based inference, not a complete dataset-wide lookup
+of known interactions; conflicting labels and missing identity metadata remain data concerns.
+
 ## Run artifacts
 
 Every run receives a unique directory below `run.output_root`. It contains, as applicable:
